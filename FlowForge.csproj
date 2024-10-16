@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net6.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.Msagl" Version="1.1.6" />
+      <PackageReference Include="Microsoft.Msagl.Drawing" Version="1.1.6" />
+      <PackageReference Include="Microsoft.Msagl.GraphViewerGDI" Version="1.1.7" />
+      <PackageReference Include="QuikGraph" Version="2.5.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="App.xaml">
+        <SubType>Form</SubType>
+      </Compile>
+    </ItemGroup>
+
+</Project>
