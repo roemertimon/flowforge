@@ -130,6 +130,8 @@ namespace FlowForge
             double maxFlow = _fordFulkerson.Run("1", "4");
 
             Console.WriteLine($"Maximaler Fluss von Quelle zu Senke: {maxFlow}");
+            MessageBox.Show($"Maximaler Fluss von Quelle zu Senke: {maxFlow}");
+
             
             /*
             // Dictionary to store the flow along the augmenting path
