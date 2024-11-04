@@ -5,17 +5,19 @@ using QuikGraph;
 public class FlowEdge : Edge<FlowNode>
 {
     public double MaxFlow { get; set; }
-    public double CurrentFlow { get; set; }
+    public double Residual { get; set; }
+    public bool IsBackwards { get; set; }
 
     public FlowEdge(FlowNode source, FlowNode target, double maxFlow)
         : base(source, target)
     {
+        IsBackwards = false;
         MaxFlow = maxFlow;
-        CurrentFlow = 0; // Initially, the current flow is set to zero.
+        Residual = 0;
     }
 
     public override string ToString()
     {
-        return $"{Source.Id} -> {Target.Id} [CurrentFlow: {CurrentFlow}, MaxFlow: {MaxFlow}]";
+        return $"{Source.Id} -> {Target.Id} [ResidualFlow: {Residual}, MaxFlow: {MaxFlow}]";
     }
 }
