@@ -4,12 +4,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Forms.Integration;
+using Microsoft.Msagl.Core;
+using Microsoft.Msagl.Core.Geometry;
 using Microsoft.Msagl.Core.Geometry.Curves;
+using Microsoft.Msagl.Core.Layout;
 using Microsoft.Msagl.Core.Routing;
 using MsaglDrawing = Microsoft.Msagl.Drawing;
 using Microsoft.Msagl.GraphViewerGdi;
 using Microsoft.Msagl.Layout.Layered;
+using Microsoft.Msagl.Layout.MDS;
 using Microsoft.Msagl.Routing;
+using Microsoft.Msagl.Routing.Rectilinear;
 
 
 namespace FlowForge
@@ -162,19 +167,39 @@ namespace FlowForge
                 
                 _gViewer.Graph = _msaglGraph;
                 
+                // Set the graph and check which layout settings are applied by default
+                _gViewer.Graph = _msaglGraph;
+
+            // Print layout information to debug output
+                if (_msaglGraph.LayoutAlgorithmSettings is SugiyamaLayoutSettings)
+                {
+                    Console.WriteLine("Using Sugiyama Layout");
+                }
+                else if (_msaglGraph.LayoutAlgorithmSettings is MdsLayoutSettings)
+                {
+                    Console.WriteLine("Using MDS Layout");
+                }
+                else
+                {
+                    Console.WriteLine("Using another layout algorithm");
+                }
+
+                
                 if (_nodePositions.Any())
                 {
-                    var originalScale = _gViewer.ZoomF;
-                    
                     ApplyNodePositions(_msaglGraph);
                     
-                    var sugiyamaSettings = new SugiyamaLayoutSettings
-                    {
-                        
-                    };
+                    var sugiyamaSettings = new SugiyamaLayoutSettings();
+                    sugiyamaSettings.NodeSeparation = 10;
+                    //sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.RectilinearToCenter;
+                    sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.Spline;
+                    sugiyamaSettings.EdgeRoutingSettings.Padding = 1;
+                    sugiyamaSettings.RepetitionCoefficientForOrdering = 100;
+                    sugiyamaSettings.EdgeRoutingSettings.KeepOriginalSpline = false;
                     
+                    Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph, sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
                     
-
+                    /*
                     // Step 3: Apply layout settings to the graph
                     _msaglGraph.LayoutAlgorithmSettings = sugiyamaSettings;
                     
@@ -193,13 +218,11 @@ namespace FlowForge
                             // Set the label to the midpoint of the edge path
                             edge.Label.GeometryLabel.Center = edge.GeometryEdge.Curve.BoundingBox.Center;
                         }
-                    }
+                    }*/
                 
                     //SetStraightLineEdges(_msaglGraph);
                     
-                    _gViewer.ZoomF = originalScale;
-                    
-                    _gViewer.Invalidate();
+                    //_gViewer.Invalidate();
                     _gViewer.NeedToCalculateLayout = false;
                     _gViewer.Graph = _msaglGraph;
                 }
