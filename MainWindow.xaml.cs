@@ -271,5 +271,84 @@ namespace FlowForge
                 edge.Attr.ArrowheadLength = 1;
             }
         }
+        
+        private string GenerateTikzCode()
+        {
+            if (_flowGraph == null)
+                throw new InvalidOperationException("Flow graph is not initialized.");
+
+            var tikzBuilder = new System.Text.StringBuilder();
+            tikzBuilder.AppendLine("\\documentclass[tikz,border=3mm]{standalone}");
+            tikzBuilder.AppendLine("\\usetikzlibrary{arrows.meta,positioning}");
+            tikzBuilder.AppendLine("\\usepackage{amsmath}");
+            tikzBuilder.AppendLine("\\begin{document}");
+    
+            // Global scaling and styles for smaller nodes and text
+            tikzBuilder.AppendLine("\\begin{tikzpicture}[scale=3,->,>=stealth,shorten >=1pt,auto,node distance=2cm,thick,");
+            tikzBuilder.AppendLine("main node/.style={circle,draw,minimum size=1mm,inner sep=1pt,font=\\scriptsize}]");
+
+            // Nodes
+            foreach (var vertex in _flowGraph.Graph.Vertices)
+            {
+                if (_nodePositions.ContainsKey(vertex.Id))
+                {
+                    var position = _nodePositions[vertex.Id];
+                    // Format x and y as floating-point values with two decimal places
+                    string formattedX = (position.X / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                    string formattedY = (position.Y / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+
+                    tikzBuilder.AppendLine($"\\node[main node] ({vertex.Id}) at ({formattedX},{formattedY}) {{{vertex.Id}}};");
+                }
+            }
+
+            // Edges
+            foreach (var edge in _flowGraph.GetEdges())
+            {
+                string label = $"{edge.Residual}/{edge.MaxFlow}";
+                tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+            }
+
+            tikzBuilder.AppendLine("\\end{tikzpicture}");
+            tikzBuilder.AppendLine("\\end{document}");
+
+            return tikzBuilder.ToString();
+        }
+
+
+
+        
+        private void ExportGraphToLatex(string filePath)
+        {
+            try
+            {
+                string tikzCode = GenerateTikzCode();
+                System.IO.File.WriteAllText(filePath, tikzCode);
+                MessageBox.Show($"Graph successfully exported to LaTeX file:\n{filePath}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error exporting graph: {ex.Message}", "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private void ExportToLatexButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_flowGraph == null)
+            {
+                MessageBox.Show("Please run an algorithm first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "TeX files (*.tex)|*.tex",
+                Title = "Export Graph to LaTeX"
+            };
+
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                ExportGraphToLatex(saveFileDialog.FileName);
+            }
+        }
     }
 }
