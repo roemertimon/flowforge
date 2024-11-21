@@ -21,10 +21,16 @@ public static class GraphVisualizer
             if (edge.IsBackwards)
             {
                 msaglEdge.LabelText = $"{0}/{edge.Residual}";
+                msaglEdge.Attr.Color = Color.Gray;
             }
             else
             {
                 msaglEdge.LabelText = $"{edge.MaxFlow-edge.Residual}/{edge.MaxFlow}";
+
+                if (edge.MaxFlow-edge.Residual > 0)
+                {
+                    msaglEdge.Attr.Color = Color.Orange;
+                }
             }
         }
 
