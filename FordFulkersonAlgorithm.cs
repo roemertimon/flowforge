@@ -11,22 +11,26 @@ public class FordFulkersonAlgorithm
         BreadthFirstSearch,
         DepthFirstSearch
     }
-    
+
+    public readonly string SourceId;
+    public readonly string TargetId;
     private readonly FlowGraph _flowGraph;
     private readonly List<FlowGraph> _graphStates = new();
     
     public IReadOnlyList<FlowGraph> GraphStates => _graphStates;
 
-    public FordFulkersonAlgorithm(FlowGraph flowGraph)
+    public FordFulkersonAlgorithm(FlowGraph flowGraph, string sourceId, string targetId)
     {
         _flowGraph = flowGraph;
+        this.SourceId = sourceId;
+        this.TargetId = targetId;
     }
 
-    public double Run(string sourceId, string targetId, SearchStrategy strategy=SearchStrategy.BreadthFirstSearch)
+    public double Run(SearchStrategy strategy=SearchStrategy.BreadthFirstSearch)
     {
         // get source and target nodes
-        FlowNode? source = _flowGraph.GetVertexById(sourceId);
-        FlowNode? target = _flowGraph.GetVertexById(targetId);
+        FlowNode? source = _flowGraph.GetVertexById(SourceId);
+        FlowNode? target = _flowGraph.GetVertexById(TargetId);
 
         if (source == null || target == null)
             throw new ArgumentException("Invalid source or target node!");
@@ -34,14 +38,15 @@ public class FordFulkersonAlgorithm
         double maxFlow = 0.0;
         var pathFlow = new Dictionary<FlowEdge, double>();
 
-
         var allEdges = _flowGraph.GetEdges();
         foreach (var edge in allEdges)
         {
-            edge.Residual = edge.MaxFlow;
+            edge.CurrentFlow = 0;
         }
         
         Console.WriteLine("Start of Ford-Fulkerson Algorithm...");
+        
+        _graphStates.Clear();
         SaveGraphState();
 
         // execute as long as there is an augmenting path
@@ -60,7 +65,8 @@ public class FordFulkersonAlgorithm
             // add forward flow along the augmenting path
             foreach (var edge in pathFlow.Keys)
             {
-                edge.Residual -= pathMinFlow;
+                //edge.Residual -= pathMinFlow;
+                edge.CurrentFlow += pathMinFlow;
                 Console.WriteLine($"Updating forward edge {edge.Source.Id} -> {edge.Target.Id}, New Residual: {edge.Residual}");
             }
             
@@ -70,23 +76,21 @@ public class FordFulkersonAlgorithm
             foreach (var edge in pathFlow.Keys)
             {
                 // check if backwards edge exists
-                FlowEdge? reverseEdge;
-                if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out reverseEdge))
+                if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out var reverseEdge))
                 {
                     // create a backwards edge if it doesn't exist
-                    reverseEdge = new FlowEdge(edge.Target, edge.Source, edge.MaxFlow);
+                    reverseEdge = new FlowEdge(edge.Target, edge.Source, pathMinFlow);
 
-                    reverseEdge.Residual = 0;
+                    reverseEdge.CurrentFlow = 0;
                     reverseEdge.IsBackwards = true;
                     
                     _flowGraph.Graph.AddEdge(reverseEdge);
                     
                     Console.WriteLine($"Creating reverse edge {reverseEdge.Source.Id} -> {reverseEdge.Target.Id}");
                 }
-
-                if (reverseEdge != null)
+                else if (reverseEdge != null)
                 {
-                    reverseEdge.Residual += pathMinFlow;
+                    reverseEdge.MaxFlow += pathMinFlow;
                     
                     Console.WriteLine($"Updating reverse edge {reverseEdge.Source.Id} -> {reverseEdge.Target.Id}, New Residual: {reverseEdge.Residual}");
                 }

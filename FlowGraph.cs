@@ -36,6 +36,11 @@ public class FlowGraph
         var edge = new FlowEdge(sourceNode, targetNode, maxFlow);
         Graph.AddEdge(edge);
     }
+    
+    public void AddEdge(FlowEdge edge)
+    {
+        Graph.AddEdge(edge);
+    }
 
     public IEnumerable<FlowEdge> GetEdges()
     {
@@ -63,10 +68,11 @@ public class FlowGraph
             {
                 var clonedEdge = new FlowEdge(source, target, edge.MaxFlow)
                 {
-                    Residual = edge.Residual,
+                    //Residual = edge.Residual,
+                    CurrentFlow = edge.CurrentFlow,
                     IsBackwards = edge.IsBackwards
                 };
-                clonedGraph.Graph.AddEdge(clonedEdge);
+                clonedGraph.AddEdge(clonedEdge);
             }
         }
 
