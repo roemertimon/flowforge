@@ -6,6 +6,8 @@ public class FlowEdge : Edge<FlowNode>
 {
     public double MaxFlow { get; set; }
     public double Residual { get; set; }
+    
+    public double CurrentFlow { get; set; }
     public bool IsBackwards { get; set; }
 
     public FlowEdge(FlowNode source, FlowNode target, double maxFlow)

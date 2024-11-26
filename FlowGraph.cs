@@ -41,4 +41,35 @@ public class FlowGraph
     {
         return Graph.Edges;
     }
+    
+    // Clone method
+    public FlowGraph Clone()
+    {
+        var clonedGraph = new FlowGraph();
+
+        // Clone all vertices
+        foreach (var vertex in Graph.Vertices)
+        {
+            clonedGraph.AddVertex(vertex.Id, vertex.Label);
+        }
+
+        // Clone all edges
+        foreach (var edge in Graph.Edges)
+        {
+            var source = clonedGraph.GetVertexById(edge.Source.Id);
+            var target = clonedGraph.GetVertexById(edge.Target.Id);
+
+            if (source != null && target != null)
+            {
+                var clonedEdge = new FlowEdge(source, target, edge.MaxFlow)
+                {
+                    Residual = edge.Residual,
+                    IsBackwards = edge.IsBackwards
+                };
+                clonedGraph.Graph.AddEdge(clonedEdge);
+            }
+        }
+
+        return clonedGraph;
+    }
 }

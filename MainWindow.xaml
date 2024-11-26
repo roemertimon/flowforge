@@ -1,7 +1,7 @@
 ﻿<Window x:Class="FlowForge.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Flow-Forge" Height="600" Width="800">
+        Title="Flow-Forge" Height="600" Width="900">
     <Grid x:Name="MainGrid">
         <!-- Define two rows: one fixed height for the button and one for the graph viewer -->
         <Grid.RowDefinitions>
@@ -12,7 +12,7 @@
         <!-- Button in the first row -->
         <Button x:Name="InitializeGraphButton" 
                 Content="Initialize Graph" 
-                Width="150" 
+                Width="120" 
                 Height="40" 
                 VerticalAlignment="Center" 
                 HorizontalAlignment="Left" 
@@ -24,36 +24,51 @@
         <!-- Second Button in the first row -->
         <Button x:Name="RunFordFulkersonButton" 
                 Content="Run Ford-Fulkerson" 
-                Width="150" 
+                Width="120" 
                 Height="40" 
                 VerticalAlignment="Center" 
                 HorizontalAlignment="Left" 
-                Margin="350,10,0,10"
+                Margin="310,10,0,10"
                 Grid.Row="0"
                 Click="FordFulkersonButton_Click"/>
         
         <!-- Second Button in the first row -->
         <Button x:Name="RunEdmondsKarpButton" 
                 Content="Run Edmonds–Karp" 
-                Width="150" 
+                Width="120" 
                 Height="40" 
                 VerticalAlignment="Center" 
                 HorizontalAlignment="Left" 
-                Margin="180,10,0,10"
+                Margin="160,10,0,10"
                 Grid.Row="0"
                 Click="EdmondsKarpButton_Click"/>
         
         <!-- Second Button in the first row -->
         <Button x:Name="Export" 
                 Content="Export" 
-                Width="150" 
+                Width="120" 
                 Height="40" 
                 VerticalAlignment="Center" 
                 HorizontalAlignment="Left" 
-                Margin="520,10,0,10"
+                Margin="460,10,0,10"
                 Grid.Row="0"
                 Click="ExportToLatexButton_Click"/>
 
+        <!-- Checkboxes in the first row -->
+        <CheckBox x:Name="IncludeAnimationCheckbox"
+                  Content="Include Animation"
+                  VerticalAlignment="Center"
+                  HorizontalAlignment="Left"
+                  Margin="620,10,0,10"
+                  Grid.Row="0"/>
+
+        <CheckBox x:Name="StandaloneCheckbox"
+                  Content="Standalone"
+                  VerticalAlignment="Center"
+                  HorizontalAlignment="Left"
+                  Margin="770,10,0,10"
+                  Grid.Row="0"
+                  IsChecked="True"/>
         
         <!-- Placeholder for graph viewer -->
         <Grid x:Name="GraphViewerGrid" Grid.Row="1"/>
