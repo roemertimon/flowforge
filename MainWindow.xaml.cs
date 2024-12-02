@@ -27,7 +27,7 @@ namespace FlowForge
         private readonly Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions = new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
 
         private MsaglDrawing.Graph _msaglGraph = new MsaglDrawing.Graph();
-        bool _isInitialized = false;
+        private bool _isInitialized = false;
 
         public MainWindow()
         {
@@ -54,9 +54,92 @@ namespace FlowForge
         // Event handler for "Initialize and Display Graph" button
         private void InitializeGraphButton_Click(object sender, RoutedEventArgs e)
         {
-            InitializeGraph();
+            // Show a file picker dialog
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
+                Title = "Select a Graph Definition File"
+            };
+
+            bool? result = openFileDialog.ShowDialog();
+
+            if (result == true && !string.IsNullOrEmpty(openFileDialog.FileName))
+            {
+                // Initialize graph from the selected file
+                InitializeGraphFromFile(openFileDialog.FileName);
+            }
+            else
+            {
+                // If no file is selected, initialize the default graph
+                InitializeGraphExample();
+            }
+
+            // Display the graph after initialization
             DisplayGraph();
         }
+        
+        private void InitializeGraphFromFile(string filePath)
+        {
+            try
+            {
+                // Clear existing graph data
+                if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
+                _nodePositions.Clear();
+                _flowGraph = new FlowGraph();
+
+                // Read all lines from the file
+                var lines = System.IO.File.ReadAllLines(filePath);
+
+                if (lines.Length < 2)
+                {
+                    throw new FormatException("The file must contain at least two lines: number of vertices and at least one edge.");
+                }
+
+                // Parse the number of vertices from the first line
+                if (!int.TryParse(lines[0], out int numVertices) || numVertices <= 1)
+                {
+                    throw new FormatException("The first line must specify an integer greater than 1 for the number of vertices.");
+                }
+
+                // Add vertices (labeled from 1 to n)
+                for (int i = 1; i <= numVertices; i++)
+                {
+                    _flowGraph.AddVertex(i.ToString(), i.ToString());
+                }
+
+                // Parse the edges
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    var parts = lines[i].Split(new[] { ',', ':' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (parts.Length != 3 || 
+                        !int.TryParse(parts[0], out int from) || 
+                        !int.TryParse(parts[1], out int to) || 
+                        !int.TryParse(parts[2], out int capacity))
+                    {
+                        throw new FormatException($"Invalid edge format on line {i + 1}: {lines[i]}");
+                    }
+
+                    if (from < 1 || from > numVertices || to < 1 || to > numVertices)
+                    {
+                        throw new FormatException($"Edge references invalid vertices on line {i + 1}: {lines[i]}");
+                    }
+
+                    _flowGraph.AddEdge(from.ToString(), to.ToString(), capacity);
+                }
+
+                // Initialize the Ford-Fulkerson algorithm
+                _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", numVertices.ToString());
+
+                MessageBox.Show("Graph successfully initialized from file.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize graph from file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                InitializeGraphExample(); // Fallback to default graph if file processing fails
+            }
+        }
+
 
         // Event handler for "Run Ford-Fulkerson" button
         private void FordFulkersonButton_Click(object sender, RoutedEventArgs e)
@@ -97,7 +180,7 @@ namespace FlowForge
             MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
         }
 
-        private void InitializeGraph()
+        private void InitializeGraphExample()
         {
             if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
             _nodePositions.Clear();
@@ -131,17 +214,29 @@ namespace FlowForge
             _msaglGraph = GraphVisualizer.ConvertToMsaglGraph(_flowGraph);
             _msaglGraph.Attr.LayerDirection = MsaglDrawing.LayerDirection.TB;
 
-            // Farbe für Knoten 1 und 4 festlegen
-            var node1 = _msaglGraph.FindNode("1");
-            if (node1 != null)
+            // Dynamically set the first node (source) to green and the last node (sink) to red
+            if (_flowGraph.Graph.Vertices.Any())
             {
-                node1.Attr.FillColor = MsaglDrawing.Color.Green; // Knoten 1 wird grün
-            }
+                var firstNode = _flowGraph.Graph.Vertices.FirstOrDefault();
+                var lastNode = _flowGraph.Graph.Vertices.LastOrDefault();
 
-            var node4 = _msaglGraph.FindNode("5");
-            if (node4 != null)
-            {
-                node4.Attr.FillColor = MsaglDrawing.Color.Red; // Knoten 4 wird rot
+                if (firstNode != null)
+                {
+                    var msaglFirstNode = _msaglGraph.FindNode(firstNode.Id);
+                    if (msaglFirstNode != null)
+                    {
+                        msaglFirstNode.Attr.FillColor = MsaglDrawing.Color.Green; // Source node (green)
+                    }
+                }
+
+                if (lastNode != null)
+                {
+                    var msaglLastNode = _msaglGraph.FindNode(lastNode.Id);
+                    if (msaglLastNode != null)
+                    {
+                        msaglLastNode.Attr.FillColor = MsaglDrawing.Color.Red; // Sink node (red)
+                    }
+                }
             }
 
             foreach (var node in _msaglGraph.Nodes)
@@ -177,30 +272,6 @@ namespace FlowForge
                     Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph,
                         sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
 
-                    /*
-                    // Step 3: Apply layout settings to the graph
-                    _msaglGraph.LayoutAlgorithmSettings = sugiyamaSettings;
-
-                    _msaglGraph.LayoutAlgorithmSettings.EdgeRoutingSettings.RouteMultiEdgesAsBundles = false;
-
-                    var router = new SplineRouter(
-                        _msaglGraph.GeometryGraph,
-                        _msaglGraph.LayoutAlgorithmSettings.EdgeRoutingSettings
-                    );
-                    router.Run();
-
-                    foreach (var edge in _msaglGraph.Edges)
-                    {
-                        if (edge.GeometryEdge != null && edge.Label != null)
-                        {
-                            // Set the label to the midpoint of the edge path
-                            edge.Label.GeometryLabel.Center = edge.GeometryEdge.Curve.BoundingBox.Center;
-                        }
-                    }*/
-
-                    //SetStraightLineEdges(_msaglGraph);
-
-                    //_gViewer.Invalidate();
                     _gViewer.NeedToCalculateLayout = false;
                     _gViewer.Graph = _msaglGraph;
                 }
