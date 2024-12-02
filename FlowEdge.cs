@@ -16,6 +16,8 @@ public class FlowEdge : Edge<FlowNode>
         private set => CurrentFlow = MaxFlow - value;
     }
     public bool IsBackwards { get; set; }
+    
+    public bool IsHighlighted { get; set; }
 
     public FlowEdge(FlowNode source, FlowNode target, double maxFlow) : base(source, target)
     {
