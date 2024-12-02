@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using QuikGraph;
 
 namespace FlowForge;
@@ -40,6 +41,29 @@ public class FlowGraph
     public void AddEdge(FlowEdge edge)
     {
         Graph.AddEdge(edge);
+    }
+
+    public void ResetFlow()
+    {
+        List<FlowEdge> allEdges = GetEdges().ToList();
+        foreach (var edge in allEdges)
+        {
+            edge.CurrentFlow = 0;
+        }
+    }
+
+    public void RemoveAllBackwardsEdges()
+    {
+        List<FlowEdge> allEdges = GetEdges().ToList();
+        foreach (var edge in allEdges.Where(edge => edge.IsBackwards))
+        {
+            Graph.RemoveEdge(edge);
+        }
+    }
+    
+    public List<FlowEdge> GetAllEdgesWithFlow()
+    {
+        return GetEdges().Where(edge => edge.CurrentFlow > 0).ToList();
     }
 
     public IEnumerable<FlowEdge> GetEdges()
