@@ -13,7 +13,7 @@ public class FlowEdge : Edge<FlowNode>
     {
         IsBackwards = false;
         MaxFlow = maxFlow;
-        Residual = 0;
+        Residual = maxFlow;
     }
 
     public override string ToString()
