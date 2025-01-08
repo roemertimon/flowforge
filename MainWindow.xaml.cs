@@ -1,22 +1,16 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-
 using System.Windows.Forms.Integration;
+using Microsoft.Msagl.Core.Geometry.Curves;
+using Microsoft.Msagl.Core.Routing;
 using MsaglDrawing = Microsoft.Msagl.Drawing;
 using Microsoft.Msagl.GraphViewerGdi;
+using Microsoft.Msagl.Layout.Layered;
+using Microsoft.Msagl.Routing;
+
 
 namespace FlowForge
 {
@@ -25,11 +19,14 @@ namespace FlowForge
         private GViewer? _gViewer;
         private FlowGraph? _flowGraph;
         private FordFulkersonAlgorithm? _fordFulkerson;
+        
+        private Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions = new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
+        private MsaglDrawing.Graph _msaglGraph;
 
         public MainWindow()
         {
             InitializeComponent();
-            InitializeGraph();
+            
             SetupGraphViewer();
         }
 
@@ -51,11 +48,59 @@ namespace FlowForge
         // Event handler for "Initialize and Display Graph" button
         private void InitializeGraphButton_Click(object sender, RoutedEventArgs e)
         {
+            InitializeGraph();
             DisplayGraph();
         }
+        
+        // Event handler for "Run Ford-Fulkerson" button
+        private void FordFulkersonButton_Click(object sender, RoutedEventArgs e)
+        {
+            /*
+            // Move node "1" to position (100, 200)
+            _msaglGraph.FindNode("1").GeometryNode.Center = new Microsoft.Msagl.Core.Geometry.Point(20,700);
+            SetStraightLineEdges(_msaglGraph);
+            
+            _gViewer.NeedToCalculateLayout = false;
+            _gViewer.Graph = _msaglGraph;*/
+            
+            if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
+            SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
+            if (_fordFulkerson == null)
+            {
+                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            //SaveNodePositions(_gViewer.Graph); // Save positions before running the algorithm
+            
+            double maxFlow = _fordFulkerson.Run("1", "4", FordFulkersonAlgorithm.SearchStrategy.DepthFirstSearch);
+            
+          
+            DisplayGraph();
+            MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
+        }
+        
+        private void EdmondsKarpButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_fordFulkerson == null)
+            {
+                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
+            if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
+            SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
+            double maxFlow = _fordFulkerson.Run("1", "4", FordFulkersonAlgorithm.SearchStrategy.BreadthFirstSearch);
+
+            DisplayGraph();
+            MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
+        }
+        
         private void InitializeGraph()
         {
+            if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
+            _nodePositions.Clear();
+            
             // Initialize a FlowGraph
             _flowGraph = new FlowGraph();
 
@@ -82,103 +127,126 @@ namespace FlowForge
         private void DisplayGraph()
         {
             // Convert QuickGraph to MSAGL Graph
-            var msaglGraph = GraphVisualizer.ConvertToMsaglGraph(_flowGraph);
-
+            _msaglGraph = GraphVisualizer.ConvertToMsaglGraph(_flowGraph);
+            _msaglGraph.Attr.LayerDirection = MsaglDrawing.LayerDirection.TB;
+            
             // Farbe für Knoten 1 und 4 festlegen
-            var node1 = msaglGraph.FindNode("1");
+            var node1 = _msaglGraph.FindNode("1");
             if (node1 != null)
             {
                 node1.Attr.FillColor = MsaglDrawing.Color.Green; // Knoten 1 wird grün
             }
 
-            var node4 = msaglGraph.FindNode("4");
+            var node4 = _msaglGraph.FindNode("4");
             if (node4 != null)
             {
                 node4.Attr.FillColor = MsaglDrawing.Color.Red; // Knoten 4 wird rot
             }
 
-            foreach (var node in msaglGraph.Nodes)
+            foreach (var node in _msaglGraph.Nodes)
             {
                 node.Attr.Shape = MsaglDrawing.Shape.Circle;     // Knoten als Kreis
             }
             
-            foreach (var edge in msaglGraph.Edges)
+            foreach (var edge in _msaglGraph.Edges)
             {
                 if (edge.Label != null)
                 {
-                    edge.Label.FontSize = 4; // Setze die Schriftgröße des Kantenlabels auf 8
+                    edge.Label.FontSize = 4; // Setze die Schriftgröße des Kantenlabels auf 4
                 }
             }
             
             // Assign MSAGL graph to viewer for display
             if (_gViewer != null)
             {
-                _gViewer.Graph = msaglGraph;
+                
+                _gViewer.Graph = _msaglGraph;
+                
+                if (_nodePositions.Any())
+                {
+                    var originalScale = _gViewer.ZoomF;
+                    
+                    ApplyNodePositions(_msaglGraph);
+                    
+                    var sugiyamaSettings = new SugiyamaLayoutSettings
+                    {
+                        
+                    };
+                    
+                    
+
+                    // Step 3: Apply layout settings to the graph
+                    _msaglGraph.LayoutAlgorithmSettings = sugiyamaSettings;
+                    
+                    _msaglGraph.LayoutAlgorithmSettings.EdgeRoutingSettings.RouteMultiEdgesAsBundles = false;
+                    
+                    var router = new SplineRouter(
+                        _msaglGraph.GeometryGraph,
+                        _msaglGraph.LayoutAlgorithmSettings.EdgeRoutingSettings
+                    );
+                    router.Run();
+                    
+                    foreach (var edge in _msaglGraph.Edges)
+                    {
+                        if (edge.GeometryEdge != null && edge.Label != null)
+                        {
+                            // Set the label to the midpoint of the edge path
+                            edge.Label.GeometryLabel.Center = edge.GeometryEdge.Curve.BoundingBox.Center;
+                        }
+                    }
+                
+                    //SetStraightLineEdges(_msaglGraph);
+                    
+                    _gViewer.ZoomF = originalScale;
+                    
+                    _gViewer.Invalidate();
+                    _gViewer.NeedToCalculateLayout = false;
+                    _gViewer.Graph = _msaglGraph;
+                }
             }
         }
-
-
-        // Event handler for "Run Ford-Fulkerson" button
-        private void RunAlgorithmButton_Click(object sender, RoutedEventArgs e)
+        
+        private void SaveNodePositions(MsaglDrawing.Graph? msaglGraph)
         {
-            if (_fordFulkerson == null)
+            _nodePositions.Clear();
+            foreach (var node in msaglGraph.Nodes)
             {
-                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                var position = node.GeometryNode.Center;
+                _nodePositions[node.Id] = new Microsoft.Msagl.Core.Geometry.Point(position.X, position.Y);
             }
+        }
+        
+        private void ApplyNodePositions(MsaglDrawing.Graph msaglGraph)
+        {
+            foreach (var node in msaglGraph.Nodes)
+            {
+                if (_nodePositions.TryGetValue(node.Id, out var position))
+                {
+                    node.GeometryNode.Center = new Microsoft.Msagl.Core.Geometry.Point(position.X, position.Y);
+                }
+            }
+        }
+        
+        private void SetStraightLineEdges(MsaglDrawing.Graph msaglGraph)
+        {
+            var geometryGraph = msaglGraph.GeometryGraph;
 
-            double maxFlow = _fordFulkerson.Run("1", "4");
+            foreach (var edge in geometryGraph.Edges)
+            {
+                var sourceCenter = edge.Source.Center;
+                var targetCenter = edge.Target.Center;
 
-            MessageBox.Show($"Maximaler Fluss von Quelle zu Senke: {maxFlow}");
-
+                // Create a straight line from source to target
+                // Create a straight line from source to target
+                edge.Curve = new LineSegment(sourceCenter, targetCenter);
+                edge.LineWidth = 2;
+            }
             
-            /*
-            // Dictionary to store the flow along the augmenting path
-            var pathFlow = new Dictionary<FlowEdge, double>();
-
-            // Try to find an augmenting path from source (1) to target (4)
-            bool pathFound = _fordFulkerson.FindAugmentingPath(_flowGraph.GetVertexById("1"), _flowGraph.GetVertexById("4"), pathFlow);
-
-            if (pathFound)
+            foreach (var edge in msaglGraph.Edges)
             {
-                // Find the start and end nodes
-                var source = _flowGraph.GetVertexById("1");
-                var target = _flowGraph.GetVertexById("4");
-
-                Console.WriteLine("Augmenting path found:");
-    
-                // To print in correct order, traverse the path from target to source
-                var pathInOrder = new List<FlowEdge>();
-                var current = target;
-    
-                // We trace back from the target to the source using the edges stored in pathFlow
-                while (current != source)
-                {
-                    var edge = pathFlow.Keys.FirstOrDefault(e => e.Target == current);
-                    if (edge == null) continue;
-                    
-                    pathInOrder.Insert(0, edge); // Insert the edge at the beginning to reverse the order
-                    current = edge.Source; // Move to the previous node
-                }
-
-                // Now we print the path from source to target in order
-                foreach (var edge in pathInOrder)
-                {
-                    Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Remaining Flow: {pathFlow[edge]}");
-                }
+                edge.Attr.ArrowheadAtTarget = MsaglDrawing.ArrowStyle.Normal; // Ensure arrowhead is displayed
+                edge.Attr.ArrowheadLength = 1;
             }
-            else
-            {
-                Console.WriteLine("No augmenting path found.");
-            }
-*/
-
-            // Run the Ford-Fulkerson algorithm
-            //double maxFlow = _fordFulkerson.Run("1", "4");
-            //MessageBox.Show($"Calculated Maximum Flow from Source to Sink: {maxFlow}");
-
-            // Update the visualization (optional)
-            DisplayGraph();
         }
     }
 }

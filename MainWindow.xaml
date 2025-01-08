@@ -30,7 +30,7 @@
                 HorizontalAlignment="Left" 
                 Margin="350,10,0,10"
                 Grid.Row="0"
-                Click="RunAlgorithmButton_Click"/>
+                Click="FordFulkersonButton_Click"/>
         
         <!-- Second Button in the first row -->
         <Button x:Name="RunEdmondsKarpButton" 
@@ -41,7 +41,7 @@
                 HorizontalAlignment="Left" 
                 Margin="180,10,0,10"
                 Grid.Row="0"
-                Click="RunAlgorithmButton_Click"/>
+                Click="EdmondsKarpButton_Click"/>
         
         <!-- Placeholder for graph viewer -->
         <Grid x:Name="GraphViewerGrid" Grid.Row="1"/>

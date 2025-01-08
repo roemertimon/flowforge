@@ -16,6 +16,8 @@ public static class GraphVisualizer
 
         foreach (var edge in flowGraph.Graph.Edges)
         {
+            if(edge.IsBackwards) continue;
+            
             var msaglEdge = msaglGraph.AddEdge(edge.Source.Id, edge.Target.Id);
 
             if (edge.IsBackwards)
