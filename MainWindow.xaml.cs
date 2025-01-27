@@ -155,7 +155,8 @@ namespace FlowForge
 
             //SaveNodePositions(_gViewer.Graph); // Save positions before running the algorithm
 
-            double maxFlow = _fordFulkerson.Run(FordFulkersonAlgorithm.SearchStrategy.DepthFirstSearch);
+            bool forceWorstCase = WorstCaseCheckbox.IsChecked ?? false;
+            double maxFlow = _fordFulkerson.Run(new DepthFirstSearchStrategy(), forceWorstCase);
 
             _isInitialized = true;
             DisplayGraph();
@@ -173,7 +174,9 @@ namespace FlowForge
 
             if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
             SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
-            double maxFlow = _fordFulkerson.Run(FordFulkersonAlgorithm.SearchStrategy.BreadthFirstSearch);
+            
+            bool forceWorstCase = WorstCaseCheckbox.IsChecked ?? false;
+            double maxFlow = _fordFulkerson.Run(new BreadthFirstSearchStrategy(), forceWorstCase);
 
             _isInitialized = true;
             DisplayGraph();
