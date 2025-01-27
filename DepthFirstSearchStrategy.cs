@@ -8,14 +8,35 @@ public class DepthFirstSearchStrategy : ISearchStrategy
 {
     public bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow, bool forceWorstCase = false)
     {
-        if (forceWorstCase)
+        try
         {
-            FlowNode? node2 = flowGraph.GetVertexById("2");
-            FlowNode? node3 = flowGraph.GetVertexById("3");
-            flowGraph.Graph.TryGetEdge(node2 ?? throw new InvalidOperationException(), node3 ?? throw new InvalidOperationException(), out var edgeFrom2To3);
-            
-            WorstCaseSearch worstCaseSearch = new WorstCaseSearch();
-            return worstCaseSearch.FindAugmentingPathWithEdge(flowGraph, source, target, edgeFrom2To3 ?? throw new InvalidOperationException(), pathFlow);
+            if (forceWorstCase)
+            {
+                // Attempt to retrieve the nodes by ID
+                FlowNode? node2 = flowGraph.GetVertexById("2");
+                FlowNode? node3 = flowGraph.GetVertexById("3");
+
+                // Validate that the nodes were found
+                if (node2 == null || node3 == null)
+                {
+                    throw new InvalidOperationException("One or more required vertices (2 or 3) could not be found in the graph.");
+                }
+
+                // Attempt to find the edge between node2 and node3
+                if (!flowGraph.Graph.TryGetEdge(node2, node3, out var edgeFrom2To3) || edgeFrom2To3 == null)
+                {
+                    throw new InvalidOperationException("The edge between node2 and node3 does not exist.");
+                }
+
+                // Use the worst-case search to find the augmenting path
+                WorstCaseSearch worstCaseSearch = new WorstCaseSearch();
+                return worstCaseSearch.FindAugmentingPathWithEdge(flowGraph, source, target, edgeFrom2To3, pathFlow);
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            Console.WriteLine("An error occurred during the worst-case search. Defaulting to normal!");
         }
         
         // parent map to walk back path
