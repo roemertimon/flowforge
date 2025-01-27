@@ -38,6 +38,30 @@ public class FlowGraph
         Graph.AddEdge(edge);
     }
     
+    public void RemoveEdge(string sourceId, string targetId)
+    {
+        // Get the source and target nodes
+        var sourceNode = GetVertexById(sourceId);
+        var targetNode = GetVertexById(targetId);
+
+        if (sourceNode == null || targetNode == null)
+        {
+            return;
+        }
+
+        // Find the edge in the graph
+        Graph.TryGetEdge(sourceNode, targetNode, out var edge);
+
+        if (edge == null)
+        {
+            return;
+        }
+
+        // Remove the edge from the graph
+        Graph.RemoveEdge(edge);
+    }
+
+    
     public void AddEdge(FlowEdge edge)
     {
         Graph.AddEdge(edge);

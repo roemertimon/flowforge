@@ -8,21 +8,21 @@ public class WorstCaseSearch
 {
     public bool FindAugmentingPathWithEdge(FlowGraph flowGraph, FlowNode source, FlowNode target, FlowEdge requiredEdge, Dictionary<FlowEdge, double> pathFlow)
     {
-        Console.WriteLine($"Searching for augmenting path that includes edge {requiredEdge.Source.Id} -> {requiredEdge.Target.Id}");
-
         // Determine if the required edge is valid in either direction
-        FlowEdge? validEdge = null;
+        FlowEdge? validEdge;
         bool isReversed = false;
 
         if (requiredEdge.Residual > 0)
         {
             validEdge = requiredEdge;
+            Console.WriteLine($"Searching for augmenting path that includes edge {requiredEdge.Source.Id} -> {requiredEdge.Target.Id}");
         }
         else if (flowGraph.Graph.TryGetEdge(requiredEdge.Target, requiredEdge.Source, out validEdge))
         {
             if (validEdge.Residual > 0)
             {
                 isReversed = true;
+                Console.WriteLine($"Searching for augmenting path that includes edge {requiredEdge.Target.Id} -> {requiredEdge.Source.Id}");
             }
             else
             {
@@ -42,17 +42,28 @@ public class WorstCaseSearch
 
         // Phase 1: Find a path from source to the starting node of the valid edge
         var phase1Path = new Dictionary<FlowEdge, double>();
-        var phase1Success = FindAugmentingPath(flowGraph, source, isReversed ? validEdge.Target : validEdge.Source, phase1Path);
+        var phase1Success = FindAugmentingPath(flowGraph, source, validEdge.Source, phase1Path);
 
         if (!phase1Success)
         {
             Console.WriteLine("No path found from source to the required edge.");
             return FindAugmentingPath(flowGraph, source, target, pathFlow);
         }
+        
+        // Print the Phase 1 path
+        Console.WriteLine("Phase 1 Path:");
+        foreach (var edge in phase1Path)
+        {
+            Console.WriteLine($"{edge.Key.Source.Id} -> {edge.Key.Target.Id}, Flow: {edge.Value}");
+        }
+        
+        // Create a copy of the graph and update it
+        var updatedGraph = flowGraph.Clone();
+        RemoveEdgesFromGraph(updatedGraph, phase1Path);
 
         // Phase 2: Find a path from the ending node of the valid edge to the target
         var phase2Path = new Dictionary<FlowEdge, double>();
-        var phase2Success = FindAugmentingPath(flowGraph, isReversed ? validEdge.Source : validEdge.Target, target, phase2Path);
+        var phase2Success = FindAugmentingPath(flowGraph, validEdge.Target, target, phase2Path);
 
         if (!phase2Success)
         {
@@ -76,31 +87,40 @@ public class WorstCaseSearch
         return true;
     }
     
-    private bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow)
+    private static void RemoveEdgesFromGraph(FlowGraph graph, Dictionary<FlowEdge, double> path)
     {
+        foreach (var edge in path.Keys)
+        {
+            var source = graph.GetVertexById(edge.Source.Id);
+            var target = graph.GetVertexById(edge.Target.Id);
+
+            if (source != null && target != null)
+            {
+                graph.RemoveEdge(source.Id, target.Id);
+            }
+        }
+    }
+
+    public bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow, bool forceWorstCase = false)
+    {
+        Console.WriteLine($"Searching for sub-augmenting path from {source.Id} -> {target.Id}");
         // parent map to walk back path
         var parentMap = new Dictionary<FlowNode, FlowEdge>();
         
-        Stack<FlowNode> nodesToVisit = new Stack<FlowNode>();
-        nodesToVisit.Push(source);
+        Queue<FlowNode> nodesToVisit = new Queue<FlowNode>();
+        nodesToVisit.Enqueue(source);
 
         // map to store visited nodes
-        var visited = new HashSet<FlowNode>();
+        var visited = new HashSet<FlowNode> {source};
 
         while (nodesToVisit.Any())
         {
-            var current = nodesToVisit.Pop();
+            var current = nodesToVisit.Dequeue();
+
             Console.WriteLine("Current Node: " + current);
-            
-            // if we reached the target node
-            if (current.Equals(target))
-            {
-                ISearchStrategy.BuildAugmentingPath(source, target, parentMap, pathFlow);
-                return true;
-            }
-            
             var outEdges = flowGraph.Graph.OutEdges(current).ToList();
-            List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
+
+            List<FlowEdge> sortedOutEdges = forceWorstCase ? outEdges.OrderBy(edge => edge.Residual).ToList() : outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
             
             Console.WriteLine("Sorted out edges for node:");
             foreach (FlowEdge edge in sortedOutEdges)
@@ -115,20 +135,28 @@ public class WorstCaseSearch
             // go through all outgoing edges
             foreach (FlowEdge currentEdge in sortedOutEdges)
             {
+                
                 if (currentEdge.Residual <= 0 || visited.Contains(currentEdge.Target)) continue;
                 
                 Console.WriteLine($"{currentEdge.Source.Id} -> {currentEdge.Target.Id}, Current Flow: {currentEdge.CurrentFlow}");
                 
-                parentMap[currentEdge.Target] = currentEdge;
+                visited.Add(currentEdge.Target);
+                parentMap.Add(currentEdge.Target, currentEdge);
+                
+                // if we reached the target node
+                if (currentEdge.Target.Equals(target))
+                {
+                    ISearchStrategy.BuildAugmentingPath(source, target, parentMap, pathFlow);
+                    return true;
+                }
+                
                 nodesToAdd.Add(currentEdge.Target);
             }
             
-            foreach (var node in nodesToAdd.OrderByDescending(n => int.Parse(n.Id)))
+            foreach (var node in nodesToAdd.OrderBy(n => int.Parse(n.Id)))
             {
-                nodesToVisit.Push(node);
+                nodesToVisit.Enqueue(node);
             }
-            
-            visited.Add(current);
         }
         
         return false;
