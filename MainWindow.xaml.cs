@@ -28,6 +28,8 @@ namespace FlowForge
 
         private MsaglDrawing.Graph _msaglGraph = new MsaglDrawing.Graph();
         private bool _isInitialized = false;
+        private FlowEdge? _specialEdge = null;
+
 
         public MainWindow()
         {
@@ -76,6 +78,8 @@ namespace FlowForge
 
             // Display the graph after initialization
             DisplayGraph();
+            
+            SnapToGridButton_Click(sender, e); // Snap nodes to grid
         }
         
         private void InitializeGraphFromFile(string filePath)
@@ -154,9 +158,9 @@ namespace FlowForge
             }
 
             //SaveNodePositions(_gViewer.Graph); // Save positions before running the algorithm
-
-            bool forceWorstCase = WorstCaseCheckbox.IsChecked ?? false;
-            double maxFlow = _fordFulkerson.Run(new DepthFirstSearchStrategy(), forceWorstCase);
+            
+            AssignSpecialEdge();
+            double maxFlow = _fordFulkerson.Run(new DepthFirstSearchStrategy(), _specialEdge);
 
             _isInitialized = true;
             DisplayGraph();
@@ -176,7 +180,7 @@ namespace FlowForge
             SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
             
             bool forceWorstCase = WorstCaseCheckbox.IsChecked ?? false;
-            double maxFlow = _fordFulkerson.Run(new BreadthFirstSearchStrategy(), forceWorstCase);
+            double maxFlow = _fordFulkerson.Run(new BreadthFirstSearchStrategy());
 
             _isInitialized = true;
             DisplayGraph();
@@ -385,6 +389,56 @@ namespace FlowForge
                 _gViewer.NeedToCalculateLayout = false;
                 _gViewer.Graph = _msaglGraph;
             }
+        }
+
+        private void WorstCaseCheckbox_Checked(object sender, RoutedEventArgs e)
+        {
+            Console.WriteLine("Force worst case enabled.");
+            EdgeDefinitionStackPanel.Visibility = Visibility.Visible; // Show the StackPanel
+        }
+
+        private void WorstCaseCheckbox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Console.WriteLine("Force worst case disabled.");
+            EdgeDefinitionStackPanel.Visibility = Visibility.Collapsed; // Hide the StackPanel
+        }
+        
+        private void AssignSpecialEdge()
+        {
+            // Get the source and target from the text boxes
+            string sourceNodeId = SourceNodeInput.Text.Trim();
+            string targetNodeId = TargetNodeInput.Text.Trim();
+
+            // Validate inputs
+            if (string.IsNullOrEmpty(sourceNodeId) || string.IsNullOrEmpty(targetNodeId))
+            {
+                Console.WriteLine("Source or target node ID is empty.");
+                _specialEdge = null;
+                return;
+            }
+
+            // Retrieve the source and target nodes from the graph
+            FlowNode? sourceNode = _flowGraph.GetVertexById(sourceNodeId);
+            FlowNode? targetNode = _flowGraph.GetVertexById(targetNodeId);
+
+            if (sourceNode == null || targetNode == null)
+            {
+                Console.WriteLine($"Could not find one or both nodes: Source ({sourceNodeId}), Target ({targetNodeId}).");
+                _specialEdge = null;
+                return;
+            }
+
+            // Find the edge between source and target
+            if (!_flowGraph.Graph.TryGetEdge(sourceNode, targetNode, out var edge) || edge == null)
+            {
+                Console.WriteLine($"The edge between {sourceNodeId} and {targetNodeId} does not exist.");
+                _specialEdge = null;
+                return;
+            }
+
+            // Assign the edge to the specialEdge field
+            _specialEdge = edge;
+            Console.WriteLine($"Special edge assigned: {_specialEdge}");
         }
     }
 }

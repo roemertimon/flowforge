@@ -6,7 +6,7 @@ namespace FlowForge;
 
 public class BreadthFirstSearchStrategy : ISearchStrategy
 {
-    public bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow, bool forceWorstCase = false)
+    public bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow, FlowEdge? specialEdge = null)
     {
         Console.WriteLine("Breadth Depth First Search...");
         // parent map to walk back path
@@ -25,7 +25,7 @@ public class BreadthFirstSearchStrategy : ISearchStrategy
             Console.WriteLine("Current Node: " + current);
             var outEdges = flowGraph.Graph.OutEdges(current).ToList();
 
-            List<FlowEdge> sortedOutEdges = forceWorstCase ? outEdges.OrderBy(edge => edge.Residual).ToList() : outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
+            List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
             
             Console.WriteLine("Sorted out edges for node:");
             foreach (FlowEdge edge in sortedOutEdges)

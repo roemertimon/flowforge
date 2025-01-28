@@ -26,7 +26,7 @@ public class FordFulkersonAlgorithm
         this.TargetId = targetId;
     }
 
-    public double Run(ISearchStrategy strategy, bool forceWorstCase = false)
+    public double Run(ISearchStrategy strategy, FlowEdge? specialEdge = null)
     {
         // get source and target nodes
         FlowNode? source = _flowGraph.GetVertexById(SourceId);
@@ -37,9 +37,10 @@ public class FordFulkersonAlgorithm
             throw new ArgumentException("Invalid source or target node!");
         }
         Console.WriteLine("Start of Ford-Fulkerson Algorithm...");
-        if (forceWorstCase)
+        
+        if (specialEdge != null)
         {
-            Console.WriteLine("Using worst case scenario for edge selection.");
+            Console.WriteLine("Using worst case scenario for edge selection with special edge " + specialEdge);
         }
 
         double maxFlow = 0.0;
@@ -51,7 +52,7 @@ public class FordFulkersonAlgorithm
         SaveGraphState();
 
         // execute as long as there is an augmenting path
-        while (strategy.FindAugmentingPath(_flowGraph, source, target, pathFlow, forceWorstCase))
+        while (strategy.FindAugmentingPath(_flowGraph, source, target, pathFlow, specialEdge))
         {
             PrintOrderedPath(pathFlow);
             
@@ -140,12 +141,18 @@ public class FordFulkersonAlgorithm
     {
         Console.WriteLine("Augmenting Path found:");
         
+        if (!pathFlow.Any())
+        {
+            Console.WriteLine("pathFlow is empty.");
+            return;
+        }
+        
         // Step 1: Find the starting edge
         FlowEdge startEdge = pathFlow.Keys
-            .First(edge => !pathFlow.Keys.Any(e => e.Target.Id == edge.Source.Id));
+            .First(edge => pathFlow.Keys.All(e => e.Target.Id != edge.Source.Id));
 
         // Step 2: Follow the path from start to end
-        List<FlowEdge> orderedPath = new List<FlowEdge> { startEdge };
+        var orderedPath = new List<FlowEdge> { startEdge };
         while (true)
         {
             var currentEdge = orderedPath.Last();

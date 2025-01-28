@@ -6,11 +6,10 @@ namespace FlowForge;
 
 public class WorstCaseSearch
 {
-    public bool FindAugmentingPathWithEdge(FlowGraph flowGraph, FlowNode source, FlowNode target, FlowEdge requiredEdge, Dictionary<FlowEdge, double> pathFlow)
+    public static bool FindAugmentingPathWithEdge(FlowGraph flowGraph, FlowNode source, FlowNode target, FlowEdge requiredEdge, Dictionary<FlowEdge, double> pathFlow)
     {
         // Determine if the required edge is valid in either direction
         FlowEdge? validEdge;
-        bool isReversed = false;
 
         if (requiredEdge.Residual > 0)
         {
@@ -21,7 +20,6 @@ public class WorstCaseSearch
         {
             if (validEdge.Residual > 0)
             {
-                isReversed = true;
                 Console.WriteLine($"Searching for augmenting path that includes edge {requiredEdge.Target.Id} -> {requiredEdge.Source.Id}");
             }
             else
@@ -42,7 +40,7 @@ public class WorstCaseSearch
 
         // Phase 1: Find a path from source to the starting node of the valid edge
         var phase1Path = new Dictionary<FlowEdge, double>();
-        var phase1Success = FindAugmentingPath(flowGraph, source, validEdge.Source, phase1Path);
+        bool phase1Success = FindAugmentingPath(flowGraph, source, validEdge.Source, phase1Path);
 
         if (!phase1Success)
         {
@@ -63,7 +61,7 @@ public class WorstCaseSearch
 
         // Phase 2: Find a path from the ending node of the valid edge to the target
         var phase2Path = new Dictionary<FlowEdge, double>();
-        var phase2Success = FindAugmentingPath(flowGraph, validEdge.Target, target, phase2Path);
+        var phase2Success = FindAugmentingPath(updatedGraph, validEdge.Target, target, phase2Path);
 
         if (!phase2Success)
         {
@@ -71,6 +69,21 @@ public class WorstCaseSearch
             return FindAugmentingPath(flowGraph, source, target, pathFlow);
         }
 
+        Console.WriteLine("Phase 1 Path:");
+        foreach (var kvp in phase1Path)
+        {
+            Console.WriteLine($"Edge: {kvp.Key.Source.Id} -> {kvp.Key.Target.Id}, Capacity: {kvp.Value}");
+        }
+
+        Console.WriteLine($"Valid Edge: {validEdge.Source.Id} -> {validEdge.Target.Id}, Residual: {validEdge.Residual}");
+
+        Console.WriteLine("Phase 2 Path:");
+        foreach (var kvp in phase2Path)
+        {
+            Console.WriteLine($"Edge: {kvp.Key.Source.Id} -> {kvp.Key.Target.Id}, Capacity: {kvp.Value}");
+        }
+
+        
         // Combine the results
         pathFlow.Clear();
         foreach (var kvp in phase1Path)
@@ -101,9 +114,14 @@ public class WorstCaseSearch
         }
     }
 
-    public bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow, bool forceWorstCase = false)
+    private static bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow)
     {
         Console.WriteLine($"Searching for sub-augmenting path from {source.Id} -> {target.Id}");
+
+        if (source.Equals(target))
+        {
+            return true;
+        }
         // parent map to walk back path
         var parentMap = new Dictionary<FlowNode, FlowEdge>();
         
@@ -120,7 +138,7 @@ public class WorstCaseSearch
             Console.WriteLine("Current Node: " + current);
             var outEdges = flowGraph.Graph.OutEdges(current).ToList();
 
-            List<FlowEdge> sortedOutEdges = forceWorstCase ? outEdges.OrderBy(edge => edge.Residual).ToList() : outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
+            List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
             
             Console.WriteLine("Sorted out edges for node:");
             foreach (FlowEdge edge in sortedOutEdges)
