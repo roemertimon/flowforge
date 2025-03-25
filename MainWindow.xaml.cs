@@ -272,56 +272,116 @@ namespace FlowForge
             }
         }
         
-        private string GenerateTikzCode()
-        {
-            if (_flowGraph == null)
-                throw new InvalidOperationException("Flow graph is not initialized.");
+        private string GenerateTikzCode_Curved()
+{
+    if (_flowGraph == null)
+        throw new InvalidOperationException("Flow graph is not initialized.");
 
-            var tikzBuilder = new System.Text.StringBuilder();
-            tikzBuilder.AppendLine("\\documentclass[tikz,border=3mm]{standalone}");
-            tikzBuilder.AppendLine("\\usetikzlibrary{arrows.meta,positioning}");
-            tikzBuilder.AppendLine("\\usepackage{amsmath}");
-            tikzBuilder.AppendLine("\\begin{document}");
+    var tikzBuilder = new System.Text.StringBuilder();
+    tikzBuilder.AppendLine("\\documentclass[tikz,border=3mm]{standalone}");
+    tikzBuilder.AppendLine("\\usetikzlibrary{arrows.meta,positioning}");
+    tikzBuilder.AppendLine("\\usepackage{amsmath}");
+    tikzBuilder.AppendLine("\\begin{document}");
     
-            // Global scaling and styles for smaller nodes and text
-            tikzBuilder.AppendLine("\\begin{tikzpicture}[scale=3,->,>=stealth,shorten >=1pt,auto,node distance=2cm,thick,");
-            tikzBuilder.AppendLine("main node/.style={circle,draw,minimum size=1mm,inner sep=1pt,font=\\scriptsize}]");
+    // Global scaling and styles for smaller nodes and text
+    tikzBuilder.AppendLine("\\begin{tikzpicture}[scale=3,->,>=stealth,shorten >=1pt,auto,node distance=2cm,thick,");
+    tikzBuilder.AppendLine("main node/.style={circle,draw,minimum size=1mm,inner sep=1pt,font=\\scriptsize}]");
 
-            // Nodes
-            foreach (var vertex in _flowGraph.Graph.Vertices)
-            {
-                if (_nodePositions.ContainsKey(vertex.Id))
-                {
-                    var position = _nodePositions[vertex.Id];
-                    // Format x and y as floating-point values with two decimal places
-                    string formattedX = (position.X / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-                    string formattedY = (position.Y / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+    // Nodes
+    foreach (var vertex in _flowGraph.Graph.Vertices)
+    {
+        if (_nodePositions.ContainsKey(vertex.Id))
+        {
+            var position = _nodePositions[vertex.Id];
+            // Format x and y as floating-point values with two decimal places
+            string formattedX = (position.X / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            string formattedY = (position.Y / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
 
-                    tikzBuilder.AppendLine($"\\node[main node] ({vertex.Id}) at ({formattedX},{formattedY}) {{{vertex.Id}}};");
-                }
-            }
-
-            // Edges
-            foreach (var edge in _flowGraph.GetEdges())
-            {
-                string label = $"{edge.Residual}/{edge.MaxFlow}";
-                tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
-            }
-
-            tikzBuilder.AppendLine("\\end{tikzpicture}");
-            tikzBuilder.AppendLine("\\end{document}");
-
-            return tikzBuilder.ToString();
+            tikzBuilder.AppendLine($"\\node[main node] ({vertex.Id}) at ({formattedX},{formattedY}) {{{vertex.Id}}};");
         }
+    }
 
+    // Edges
+    foreach (var edge in _flowGraph.GetEdges())
+    {
+        string label = $"{edge.Residual}/{edge.MaxFlow}";
 
+        if (edge.IsBackwards)
+        {
+            // Reverse edge styling (curved, dashed, different color)
+            tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}},bend right,dashed,red] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+        }
+        else
+        {
+            // Normal edge styling
+            tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+        }
+    }
+
+    tikzBuilder.AppendLine("\\end{tikzpicture}");
+    tikzBuilder.AppendLine("\\end{document}");
+
+    return tikzBuilder.ToString();
+}
+
+        private string GenerateTikzCode()
+{
+    if (_flowGraph == null)
+        throw new InvalidOperationException("Flow graph is not initialized.");
+
+    var tikzBuilder = new System.Text.StringBuilder();
+    tikzBuilder.AppendLine("\\documentclass[tikz,border=3mm]{standalone}");
+    tikzBuilder.AppendLine("\\usetikzlibrary{arrows.meta,positioning}");
+    tikzBuilder.AppendLine("\\usepackage{amsmath}");
+    tikzBuilder.AppendLine("\\begin{document}");
+    
+    // Global scaling and styles for smaller nodes and text
+    tikzBuilder.AppendLine("\\begin{tikzpicture}[scale=3,->,>=stealth,shorten >=1pt,auto,node distance=2cm,thick,");
+    tikzBuilder.AppendLine("main node/.style={circle,draw,minimum size=1mm,inner sep=1pt,font=\\scriptsize}]");
+
+    // Nodes
+    foreach (var vertex in _flowGraph.Graph.Vertices)
+    {
+        if (_nodePositions.ContainsKey(vertex.Id))
+        {
+            var position = _nodePositions[vertex.Id];
+            // Format x and y as floating-point values with two decimal places
+            string formattedX = (position.X / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            string formattedY = (position.Y / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+
+            tikzBuilder.AppendLine($"\\node[main node] ({vertex.Id}) at ({formattedX},{formattedY}) {{{vertex.Id}}};");
+        }
+    }
+
+    // Edges
+    foreach (var edge in _flowGraph.GetEdges())
+    {
+        string label = $"{edge.Residual}/{edge.MaxFlow}";
+
+        if (edge.IsBackwards)
+        {
+            // Reverse edge styling: offset slightly above forward edges
+            tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}},dashed,red] ({edge.Source.Id}) edge [pos=0.5,above] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+        }
+        else
+        {
+            // Normal edge styling
+            tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge [pos=0.5,below] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+        }
+    }
+
+    tikzBuilder.AppendLine("\\end{tikzpicture}");
+    tikzBuilder.AppendLine("\\end{document}");
+
+    return tikzBuilder.ToString();
+}
 
         
         private void ExportGraphToLatex(string filePath)
         {
             try
             {
-                string tikzCode = GenerateTikzCode();
+                string tikzCode = GenerateTikzCode_Curved();
                 System.IO.File.WriteAllText(filePath, tikzCode);
                 MessageBox.Show($"Graph successfully exported to LaTeX file:\n{filePath}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
             }
