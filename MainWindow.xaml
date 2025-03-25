@@ -43,6 +43,18 @@
                 Grid.Row="0"
                 Click="EdmondsKarpButton_Click"/>
         
+        <!-- Second Button in the first row -->
+        <Button x:Name="Export" 
+                Content="Export" 
+                Width="150" 
+                Height="40" 
+                VerticalAlignment="Center" 
+                HorizontalAlignment="Left" 
+                Margin="520,10,0,10"
+                Grid.Row="0"
+                Click="ExportToLatexButton_Click"/>
+
+        
         <!-- Placeholder for graph viewer -->
         <Grid x:Name="GraphViewerGrid" Grid.Row="1"/>
     </Grid>
