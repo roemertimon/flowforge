@@ -43,11 +43,7 @@ public class FordFulkersonAlgorithm
         // execute as long as there is an augmenting path
         while (FindAugmentingPath(source, target, pathFlow, strategy))
         {
-            Console.WriteLine("Augmenting Path found:");
-            foreach (var edge in pathFlow.Keys)
-            {
-                Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Residual Capacity: {pathFlow[edge]}");
-            }
+            PrintOrderedPath(pathFlow);
             
             // calculate bottleneck in augmenting path
             double pathMinFlow = double.MaxValue;
@@ -120,16 +116,25 @@ public class FordFulkersonAlgorithm
         }
         
         // map to store visited nodes
-        var visited = new HashSet<FlowNode> { source };
+        var visited = new HashSet<FlowNode> {source};
 
         while (nodesToVisit.Any())
         {
             var current = strategy == SearchStrategy.BreadthFirstSearch ? ((Queue<FlowNode>)nodesToVisit).Dequeue() : ((Stack<FlowNode>)nodesToVisit).Pop();
-            
+
+            Console.WriteLine("Current: " + current);
             var outEdges = _flowGraph.Graph.OutEdges(current).ToList();
             
-            var sortedOutEdges = outEdges.OrderBy(edge => edge.Target.Id);
-
+            List<FlowEdge> sortedOutEdges;
+            if (strategy == SearchStrategy.BreadthFirstSearch)
+            {
+                sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
+            }
+            else
+            {
+                sortedOutEdges = outEdges.OrderByDescending(edge => int.Parse(edge.Target.Id)).ToList();
+            }
+            
             // go through all outgoing edges
             foreach (FlowEdge currentEdge in sortedOutEdges)
             {
@@ -170,6 +175,32 @@ public class FordFulkersonAlgorithm
             FlowEdge pathEdge = parentMap[currentNode];
             pathFlow[pathEdge] = pathEdge.Residual;
             currentNode = pathEdge.Source;
+        }
+    }
+    
+    public static void PrintOrderedPath(Dictionary<FlowEdge, double> pathFlow)
+    {
+        Console.WriteLine("Augmenting Path found:");
+        
+        // Step 1: Find the starting edge
+        FlowEdge startEdge = pathFlow.Keys
+            .First(edge => !pathFlow.Keys.Any(e => e.Target.Id == edge.Source.Id));
+
+        // Step 2: Follow the path from start to end
+        List<FlowEdge> orderedPath = new List<FlowEdge> { startEdge };
+        while (true)
+        {
+            var currentEdge = orderedPath.Last();
+            var nextEdge = pathFlow.Keys.FirstOrDefault(edge => edge.Source.Id == currentEdge.Target.Id);
+            
+            if (nextEdge == null) break; // End of path reached
+            orderedPath.Add(nextEdge);
+        }
+
+        // Step 3: Output the ordered path
+        foreach (var edge in orderedPath)
+        {
+            Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Residual Capacity: {pathFlow[edge]}");
         }
     }
 }
