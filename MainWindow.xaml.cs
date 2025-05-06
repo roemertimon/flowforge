@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -24,14 +23,16 @@ namespace FlowForge
         private GViewer? _gViewer;
         private FlowGraph? _flowGraph;
         private FordFulkersonAlgorithm? _fordFulkerson;
-        
-        private Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions = new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
+
+        private readonly Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions =
+            new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
+
         private MsaglDrawing.Graph _msaglGraph;
 
         public MainWindow()
         {
             InitializeComponent();
-            
+
             SetupGraphViewer();
         }
 
@@ -56,40 +57,34 @@ namespace FlowForge
             InitializeGraph();
             DisplayGraph();
         }
-        
+
         // Event handler for "Run Ford-Fulkerson" button
         private void FordFulkersonButton_Click(object sender, RoutedEventArgs e)
         {
-            /*
-            // Move node "1" to position (100, 200)
-            _msaglGraph.FindNode("1").GeometryNode.Center = new Microsoft.Msagl.Core.Geometry.Point(20,700);
-            SetStraightLineEdges(_msaglGraph);
-            
-            _gViewer.NeedToCalculateLayout = false;
-            _gViewer.Graph = _msaglGraph;*/
-            
             if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
             SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
             if (_fordFulkerson == null)
             {
-                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-            
+
             //SaveNodePositions(_gViewer.Graph); // Save positions before running the algorithm
-            
+
             double maxFlow = _fordFulkerson.Run("1", "4", FordFulkersonAlgorithm.SearchStrategy.DepthFirstSearch);
-            
-          
+
+
             DisplayGraph();
             MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
         }
-        
+
         private void EdmondsKarpButton_Click(object sender, RoutedEventArgs e)
         {
             if (_fordFulkerson == null)
             {
-                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -100,12 +95,12 @@ namespace FlowForge
             DisplayGraph();
             MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
         }
-        
+
         private void InitializeGraph()
         {
             if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
             _nodePositions.Clear();
-            
+
             // Initialize a FlowGraph
             _flowGraph = new FlowGraph();
 
@@ -134,7 +129,7 @@ namespace FlowForge
             // Convert QuickGraph to MSAGL Graph
             _msaglGraph = GraphVisualizer.ConvertToMsaglGraph(_flowGraph);
             _msaglGraph.Attr.LayerDirection = MsaglDrawing.LayerDirection.TB;
-            
+
             // Farbe für Knoten 1 und 4 festlegen
             var node1 = _msaglGraph.FindNode("1");
             if (node1 != null)
@@ -150,9 +145,9 @@ namespace FlowForge
 
             foreach (var node in _msaglGraph.Nodes)
             {
-                node.Attr.Shape = MsaglDrawing.Shape.Circle;     // Knoten als Kreis
+                node.Attr.Shape = MsaglDrawing.Shape.Circle; // Knoten als Kreis
             }
-            
+
             foreach (var edge in _msaglGraph.Edges)
             {
                 if (edge.Label != null)
@@ -160,35 +155,16 @@ namespace FlowForge
                     edge.Label.FontSize = 4; // Setze die Schriftgröße des Kantenlabels auf 4
                 }
             }
-            
+
             // Assign MSAGL graph to viewer for display
             if (_gViewer != null)
             {
-                
-                _gViewer.Graph = _msaglGraph;
-                
-                // Set the graph and check which layout settings are applied by default
                 _gViewer.Graph = _msaglGraph;
 
-            // Print layout information to debug output
-                if (_msaglGraph.LayoutAlgorithmSettings is SugiyamaLayoutSettings)
-                {
-                    Console.WriteLine("Using Sugiyama Layout");
-                }
-                else if (_msaglGraph.LayoutAlgorithmSettings is MdsLayoutSettings)
-                {
-                    Console.WriteLine("Using MDS Layout");
-                }
-                else
-                {
-                    Console.WriteLine("Using another layout algorithm");
-                }
-
-                
                 if (_nodePositions.Any())
                 {
                     ApplyNodePositions(_msaglGraph);
-                    
+
                     var sugiyamaSettings = new SugiyamaLayoutSettings();
                     sugiyamaSettings.NodeSeparation = 10;
                     //sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.RectilinearToCenter;
@@ -197,20 +173,21 @@ namespace FlowForge
                     sugiyamaSettings.RepetitionCoefficientForOrdering = 100;
                     sugiyamaSettings.EdgeRoutingSettings.KeepOriginalSpline = false;
                     
-                    Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph, sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
-                    
+                    Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph,
+                        sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
+
                     /*
                     // Step 3: Apply layout settings to the graph
                     _msaglGraph.LayoutAlgorithmSettings = sugiyamaSettings;
-                    
+
                     _msaglGraph.LayoutAlgorithmSettings.EdgeRoutingSettings.RouteMultiEdgesAsBundles = false;
-                    
+
                     var router = new SplineRouter(
                         _msaglGraph.GeometryGraph,
                         _msaglGraph.LayoutAlgorithmSettings.EdgeRoutingSettings
                     );
                     router.Run();
-                    
+
                     foreach (var edge in _msaglGraph.Edges)
                     {
                         if (edge.GeometryEdge != null && edge.Label != null)
@@ -219,26 +196,27 @@ namespace FlowForge
                             edge.Label.GeometryLabel.Center = edge.GeometryEdge.Curve.BoundingBox.Center;
                         }
                     }*/
-                
+
                     //SetStraightLineEdges(_msaglGraph);
-                    
+
                     //_gViewer.Invalidate();
                     _gViewer.NeedToCalculateLayout = false;
                     _gViewer.Graph = _msaglGraph;
                 }
             }
         }
-        
+
         private void SaveNodePositions(MsaglDrawing.Graph? msaglGraph)
         {
             _nodePositions.Clear();
+            if (msaglGraph == null) return;
             foreach (var node in msaglGraph.Nodes)
             {
                 var position = node.GeometryNode.Center;
                 _nodePositions[node.Id] = new Microsoft.Msagl.Core.Geometry.Point(position.X, position.Y);
             }
         }
-        
+
         private void ApplyNodePositions(MsaglDrawing.Graph msaglGraph)
         {
             foreach (var node in msaglGraph.Nodes)
@@ -249,7 +227,7 @@ namespace FlowForge
                 }
             }
         }
-        
+
         private void SetStraightLineEdges(MsaglDrawing.Graph msaglGraph)
         {
             var geometryGraph = msaglGraph.GeometryGraph;
@@ -264,130 +242,11 @@ namespace FlowForge
                 edge.Curve = new LineSegment(sourceCenter, targetCenter);
                 edge.LineWidth = 2;
             }
-            
+
             foreach (var edge in msaglGraph.Edges)
             {
                 edge.Attr.ArrowheadAtTarget = MsaglDrawing.ArrowStyle.Normal; // Ensure arrowhead is displayed
                 edge.Attr.ArrowheadLength = 1;
-            }
-        }
-        
-        private string GenerateTikzCode_Curved()
-{
-        if (_flowGraph == null)
-            throw new InvalidOperationException("Flow graph is not initialized.");
-
-        var tikzBuilder = new System.Text.StringBuilder();
-        tikzBuilder.AppendLine("\\documentclass[tikz,border=3mm]{standalone}");
-        tikzBuilder.AppendLine("\\usetikzlibrary{arrows.meta,positioning}");
-        tikzBuilder.AppendLine("\\usepackage{amsmath}");
-        tikzBuilder.AppendLine("\\begin{document}");
-        
-        // Global scaling and styles for smaller nodes and text
-        tikzBuilder.AppendLine("\\begin{tikzpicture}[scale=3,->,>=stealth,shorten >=1pt,auto,node distance=2cm,thick,");
-        tikzBuilder.AppendLine("main node/.style={circle,draw,minimum size=5mm,inner sep=1pt,font=\\scriptsize}]");
-
-        // Nodes
-        foreach (var vertex in _flowGraph.Graph.Vertices)
-        {
-            if (_nodePositions.ContainsKey(vertex.Id))
-            {
-                var position = _nodePositions[vertex.Id];
-                // Format x and y as floating-point values with two decimal places
-                string formattedX = (position.X / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-                string formattedY = (position.Y / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-
-                tikzBuilder.AppendLine($"\\node[main node] ({vertex.Id}) at ({formattedX},{formattedY}) {{{vertex.Id}}};");
-            }
-        }
-
-        // Edges
-        foreach (var edge in _flowGraph.GetEdges())
-        {
-            string label = $"{edge.Residual}/{edge.MaxFlow}";
-
-            if (edge.IsBackwards)
-            {
-                // Reverse edge styling (curved, dashed, different color)
-                tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}},bend right,dashed,red] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
-            }
-            else
-            {
-                // Normal edge styling
-                tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
-            }
-        }
-
-        tikzBuilder.AppendLine("\\end{tikzpicture}");
-        tikzBuilder.AppendLine("\\end{document}");
-
-        return tikzBuilder.ToString();
-    }
-
-            private string GenerateTikzCode()
-    {
-        if (_flowGraph == null)
-            throw new InvalidOperationException("Flow graph is not initialized.");
-
-        var tikzBuilder = new System.Text.StringBuilder();
-        tikzBuilder.AppendLine("\\documentclass[tikz,border=3mm]{standalone}");
-        tikzBuilder.AppendLine("\\usetikzlibrary{arrows.meta,positioning}");
-        tikzBuilder.AppendLine("\\usepackage{amsmath}");
-        tikzBuilder.AppendLine("\\begin{document}");
-        
-        // Global scaling and styles for smaller nodes and text
-        tikzBuilder.AppendLine("\\begin{tikzpicture}[scale=3,->,>=stealth,shorten >=1pt,auto,node distance=2cm,thick,");
-        tikzBuilder.AppendLine("main node/.style={circle,draw,minimum size=1mm,inner sep=1pt,font=\\scriptsize}]");
-
-        // Nodes
-        foreach (var vertex in _flowGraph.Graph.Vertices)
-        {
-            if (_nodePositions.ContainsKey(vertex.Id))
-            {
-                var position = _nodePositions[vertex.Id];
-                // Format x and y as floating-point values with two decimal places
-                string formattedX = (position.X / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-                string formattedY = (position.Y / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-
-                tikzBuilder.AppendLine($"\\node[main node] ({vertex.Id}) at ({formattedX},{formattedY}) {{{vertex.Id}}};");
-            }
-        }
-
-        // Edges
-        foreach (var edge in _flowGraph.GetEdges())
-        {
-            string label = $"{edge.Residual}/{edge.MaxFlow}";
-
-            if (edge.IsBackwards)
-            {
-                // Reverse edge styling: offset slightly above forward edges
-                tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}},dashed,red] ({edge.Source.Id}) edge [pos=0.5,above] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
-            }
-            else
-            {
-                // Normal edge styling
-                tikzBuilder.AppendLine($"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge [pos=0.5,below] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
-            }
-        }
-
-        tikzBuilder.AppendLine("\\end{tikzpicture}");
-        tikzBuilder.AppendLine("\\end{document}");
-
-        return tikzBuilder.ToString();
-    }
-
-        
-        private void ExportGraphToLatex(string filePath)
-        {
-            try
-            {
-                string tikzCode = GenerateTikzCode_Curved();
-                System.IO.File.WriteAllText(filePath, tikzCode);
-                MessageBox.Show($"Graph successfully exported to LaTeX file:\n{filePath}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error exporting graph: {ex.Message}", "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         
@@ -399,16 +258,8 @@ namespace FlowForge
                 return;
             }
 
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "TeX files (*.tex)|*.tex",
-                Title = "Export Graph to LaTeX"
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                ExportGraphToLatex(saveFileDialog.FileName);
-            }
+            TikzCodeGenerator tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson.GraphStates);
+            tikzCodeGenerator.ExportGraphToLatex(IncludeAnimationCheckbox.IsChecked, StandaloneCheckbox.IsChecked);
         }
     }
 }

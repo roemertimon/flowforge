@@ -13,6 +13,9 @@ public class FordFulkersonAlgorithm
     }
     
     private readonly FlowGraph _flowGraph;
+    private readonly List<FlowGraph> _graphStates = new();
+    
+    public IReadOnlyList<FlowGraph> GraphStates => _graphStates;
 
     public FordFulkersonAlgorithm(FlowGraph flowGraph)
     {
@@ -39,6 +42,7 @@ public class FordFulkersonAlgorithm
         }
         
         Console.WriteLine("Start of Ford-Fulkerson Algorithm...");
+        SaveGraphState();
 
         // execute as long as there is an augmenting path
         while (FindAugmentingPath(source, target, pathFlow, strategy))
@@ -53,13 +57,18 @@ public class FordFulkersonAlgorithm
             }
             Console.WriteLine($"Bottleneck (minimum flow in path): {pathMinFlow}");
 
-            // add flow along the augmenting path
+            // add forward flow along the augmenting path
             foreach (var edge in pathFlow.Keys)
             {
                 edge.Residual -= pathMinFlow;
                 Console.WriteLine($"Updating forward edge {edge.Source.Id} -> {edge.Target.Id}, New Residual: {edge.Residual}");
-
-
+            }
+            
+            SaveGraphState();
+            
+            // create residual flow along the augmenting path
+            foreach (var edge in pathFlow.Keys)
+            {
                 // check if backwards edge exists
                 FlowEdge? reverseEdge;
                 if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out reverseEdge))
@@ -86,6 +95,8 @@ public class FordFulkersonAlgorithm
             // add to total flow
             maxFlow += pathMinFlow;
             Console.WriteLine($"Current max flow: {maxFlow}\n");
+            
+            SaveGraphState();
         }
 
         Console.WriteLine("No Augmenting Path found anymore!\n");
@@ -177,8 +188,8 @@ public class FordFulkersonAlgorithm
             currentNode = pathEdge.Source;
         }
     }
-    
-    public static void PrintOrderedPath(Dictionary<FlowEdge, double> pathFlow)
+
+    private static void PrintOrderedPath(Dictionary<FlowEdge, double> pathFlow)
     {
         Console.WriteLine("Augmenting Path found:");
         
@@ -203,4 +214,12 @@ public class FordFulkersonAlgorithm
             Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Residual Capacity: {pathFlow[edge]}");
         }
     }
+    
+    private void SaveGraphState()
+    {
+        // Deep copy the current graph state
+        var snapshot = _flowGraph.Clone();
+        _graphStates.Add(snapshot);
+    }
+
 }
