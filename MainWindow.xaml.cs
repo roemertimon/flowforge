@@ -21,13 +21,13 @@ namespace FlowForge
     public partial class MainWindow : Window
     {
         private GViewer? _gViewer;
-        private FlowGraph? _flowGraph;
+        private FlowGraph _flowGraph = new FlowGraph();
         private FordFulkersonAlgorithm? _fordFulkerson;
 
-        private readonly Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions =
-            new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
+        private readonly Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions = new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
 
-        private MsaglDrawing.Graph _msaglGraph;
+        private MsaglDrawing.Graph _msaglGraph = new MsaglDrawing.Graph();
+        bool _isInitialized = false;
 
         public MainWindow()
         {
@@ -72,9 +72,9 @@ namespace FlowForge
 
             //SaveNodePositions(_gViewer.Graph); // Save positions before running the algorithm
 
-            double maxFlow = _fordFulkerson.Run("1", "4", FordFulkersonAlgorithm.SearchStrategy.DepthFirstSearch);
+            double maxFlow = _fordFulkerson.Run(FordFulkersonAlgorithm.SearchStrategy.DepthFirstSearch);
 
-
+            _isInitialized = true;
             DisplayGraph();
             MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
         }
@@ -90,8 +90,9 @@ namespace FlowForge
 
             if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
             SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
-            double maxFlow = _fordFulkerson.Run("1", "4", FordFulkersonAlgorithm.SearchStrategy.BreadthFirstSearch);
+            double maxFlow = _fordFulkerson.Run(FordFulkersonAlgorithm.SearchStrategy.BreadthFirstSearch);
 
+            _isInitialized = true;
             DisplayGraph();
             MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
         }
@@ -121,7 +122,7 @@ namespace FlowForge
             _flowGraph.AddEdge("1", "5", 200);
 
             // Initialize Ford-Fulkerson algorithm with the flow graph
-            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph);
+            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", "4");
         }
 
         private void DisplayGraph()
@@ -172,7 +173,7 @@ namespace FlowForge
                     sugiyamaSettings.EdgeRoutingSettings.Padding = 1;
                     sugiyamaSettings.RepetitionCoefficientForOrdering = 100;
                     sugiyamaSettings.EdgeRoutingSettings.KeepOriginalSpline = false;
-                    
+
                     Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph,
                         sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
 
@@ -238,7 +239,6 @@ namespace FlowForge
                 var targetCenter = edge.Target.Center;
 
                 // Create a straight line from source to target
-                // Create a straight line from source to target
                 edge.Curve = new LineSegment(sourceCenter, targetCenter);
                 edge.LineWidth = 2;
             }
@@ -249,16 +249,17 @@ namespace FlowForge
                 edge.Attr.ArrowheadLength = 1;
             }
         }
-        
+
         private void ExportToLatexButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_flowGraph == null)
+            if (!_isInitialized)
             {
                 MessageBox.Show("Please run an algorithm first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            TikzCodeGenerator tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson.GraphStates);
+            if (_fordFulkerson == null) return;
+            TikzCodeGenerator tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson);
             tikzCodeGenerator.ExportGraphToLatex(IncludeAnimationCheckbox.IsChecked, StandaloneCheckbox.IsChecked);
         }
     }

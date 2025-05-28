@@ -4,7 +4,7 @@ namespace FlowForge;
 
 public static class GraphVisualizer
 {
-    public static Graph ConvertToMsaglGraph(FlowGraph? flowGraph)
+    public static Graph ConvertToMsaglGraph(FlowGraph flowGraph)
     {
         Graph msaglGraph = new Graph();
 
@@ -22,12 +22,12 @@ public static class GraphVisualizer
 
             if (edge.IsBackwards)
             {
-                msaglEdge.LabelText = $"{0}/{edge.Residual}";
+                msaglEdge.LabelText = $"{edge.CurrentFlow}/{edge.MaxFlow}";
                 msaglEdge.Attr.Color = Color.Gray;
             }
             else
             {
-                msaglEdge.LabelText = $"{edge.MaxFlow-edge.Residual}/{edge.MaxFlow}";
+                msaglEdge.LabelText = $"{edge.CurrentFlow}/{edge.MaxFlow}";
 
                 if (edge.MaxFlow-edge.Residual > 0)
                 {
