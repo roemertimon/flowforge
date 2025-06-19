@@ -21,7 +21,7 @@ public class TikzCodeGenerator
         this._graphStates = _fordFulkerson.GraphStates;
     }
 
-    private string GenerateTikzCode_Curved(bool includeAnimations, bool isStandalone)
+    private string GenerateTikzCode(bool includeAnimations, bool isStandalone)
     {
         if (_flowGraph == null)
         {
@@ -75,6 +75,10 @@ public class TikzCodeGenerator
     
     private void BuildTikzNodes(StringBuilder tikzBuilder)
     {
+        // Define custom colors for source and target nodes using hex codes
+        tikzBuilder.AppendLine("\\definecolor{sourceColor}{HTML}{00AA00}"); // Strong green
+        tikzBuilder.AppendLine("\\definecolor{targetColor}{HTML}{AA0000}"); // Strong red
+        
         // Nodes
         foreach (var vertex in _flowGraph.Graph.Vertices)
         {
@@ -91,11 +95,11 @@ public class TikzCodeGenerator
                 string colorStyle = "circle,draw";
                 if (vertex.Id == _fordFulkerson.SourceId)
                 {
-                    colorStyle = "circle,draw,fill=green!50";
+                    colorStyle = "circle,draw,fill=sourceColor";
                 }
                 else if (vertex.Id == _fordFulkerson.TargetId)
                 {
-                    colorStyle = "circle,draw,fill=red!50";
+                    colorStyle = "circle,draw,fill=targetColor";
                 }
                 
                 // Write the TikZ node with the appropriate style
@@ -137,23 +141,24 @@ public class TikzCodeGenerator
             var stateGraph = _graphStates[frame];
         
             // Begin the frame visibility block
-            tikzBuilder.AppendLine($"\\only<{frame + 1}>{{");
+            tikzBuilder.AppendLine($"\\visible<{frame + 1}>{{");
 
             foreach (var edge in stateGraph.GetEdges())
             {
                 string label = $"{edge.CurrentFlow}/{edge.MaxFlow}";
+                string color = edge.IsHighlighted ? "red" : "black"; // Choose color based on state
 
                 if (edge.IsBackwards)
                 {
-                    // Reverse edge styling (curved, dashed, different color)
+                    // Backward edge styling
                     tikzBuilder.AppendLine(
-                        $"\\path[every node/.style={{font=\\tiny}},bend right,dashed,red] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+                        $"\\path[every node/.style={{font=\\tiny}},bend right,dashed,{color}] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
                 }
                 else
                 {
                     // Normal edge styling
                     tikzBuilder.AppendLine(
-                        $"\\path[every node/.style={{font=\\tiny}}] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
+                        $"\\path[every node/.style={{font=\\tiny}},{color}] ({edge.Source.Id}) edge [pos=0.5,sloped] node {{\\texttt{{{label}}}}} ({edge.Target.Id});");
                 }
             }
 
@@ -166,7 +171,7 @@ public class TikzCodeGenerator
     {
         tikzBuilder.AppendLine("\\end{tikzpicture}");
         
-        if (!isStandalone)
+        if (isStandalone)
         {
             tikzBuilder.AppendLine("\\end{frame} ");
             tikzBuilder.AppendLine("\\end{document}");
@@ -190,7 +195,7 @@ public class TikzCodeGenerator
 
         try
         {
-            string tikzCode = GenerateTikzCode_Curved(includeAnimationChecked, standaloneChecked);
+            string tikzCode = GenerateTikzCode(includeAnimationChecked, standaloneChecked);
             
             System.IO.File.WriteAllText(filePath, tikzCode);
 

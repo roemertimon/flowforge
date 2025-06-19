@@ -113,16 +113,16 @@ namespace FlowForge
             _flowGraph.AddVertex("5", "5");
 
             // Adding edges with flow capacities
-            _flowGraph.AddEdge("1", "2", 10);
-            _flowGraph.AddEdge("2", "3", 5);
-            _flowGraph.AddEdge("3", "4", 15);
-            _flowGraph.AddEdge("2", "4", 5);
-            _flowGraph.AddEdge("2", "5", 100);
-            _flowGraph.AddEdge("5", "4", 2);
-            _flowGraph.AddEdge("1", "5", 200);
+            _flowGraph.AddEdge("1", "2", 20);
+            _flowGraph.AddEdge("1", "3", 20);
+            _flowGraph.AddEdge("2", "3", 1);
+            _flowGraph.AddEdge("2", "4", 20);
+            _flowGraph.AddEdge("3", "4", 20);
+            _flowGraph.AddEdge("4", "5", 40);
+
 
             // Initialize Ford-Fulkerson algorithm with the flow graph
-            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", "4");
+            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", "5");
         }
 
         private void DisplayGraph()
@@ -138,7 +138,7 @@ namespace FlowForge
                 node1.Attr.FillColor = MsaglDrawing.Color.Green; // Knoten 1 wird grün
             }
 
-            var node4 = _msaglGraph.FindNode("4");
+            var node4 = _msaglGraph.FindNode("5");
             if (node4 != null)
             {
                 node4.Attr.FillColor = MsaglDrawing.Color.Red; // Knoten 4 wird rot

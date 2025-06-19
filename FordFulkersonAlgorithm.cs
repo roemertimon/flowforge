@@ -70,7 +70,12 @@ public class FordFulkersonAlgorithm
                 Console.WriteLine($"Updating forward edge {edge.Source.Id} -> {edge.Target.Id}, New Residual: {edge.Residual}");
             }
             
-            SaveGraphState();
+            // Convert pathFlow to a list of edges for highlighting
+            var augmentingPath = pathFlow.Keys.ToList();
+            SaveGraphState(augmentingPath);
+
+
+            List<FlowEdge> residualChanges = new List<FlowEdge>();
             
             // create residual flow along the augmenting path
             foreach (var edge in pathFlow.Keys)
@@ -85,12 +90,14 @@ public class FordFulkersonAlgorithm
                     reverseEdge.IsBackwards = true;
                     
                     _flowGraph.Graph.AddEdge(reverseEdge);
+                    residualChanges.Add(reverseEdge);
                     
                     Console.WriteLine($"Creating reverse edge {reverseEdge.Source.Id} -> {reverseEdge.Target.Id}");
                 }
                 else if (reverseEdge != null)
                 {
                     reverseEdge.MaxFlow += pathMinFlow;
+                    residualChanges.Add(reverseEdge);
                     
                     Console.WriteLine($"Updating reverse edge {reverseEdge.Source.Id} -> {reverseEdge.Target.Id}, New Residual: {reverseEdge.Residual}");
                 }
@@ -100,12 +107,16 @@ public class FordFulkersonAlgorithm
             maxFlow += pathMinFlow;
             Console.WriteLine($"Current max flow: {maxFlow}\n");
             
-            SaveGraphState();
+            SaveGraphState(residualChanges);
         }
 
         Console.WriteLine("No Augmenting Path found anymore!\n");
 
         Console.WriteLine($"Max flow found: {maxFlow}\n");
+        
+        List<FlowEdge> edgesWithFlow = allEdges.Where(edge => edge.CurrentFlow > 0).ToList();
+        SaveGraphState(edgesWithFlow);
+
         // return maximum flow after no augmenting paths were found anymore
         return maxFlow;
     }
@@ -137,7 +148,7 @@ public class FordFulkersonAlgorithm
         {
             var current = strategy == SearchStrategy.BreadthFirstSearch ? ((Queue<FlowNode>)nodesToVisit).Dequeue() : ((Stack<FlowNode>)nodesToVisit).Pop();
 
-            Console.WriteLine("Current: " + current);
+            Console.WriteLine("Current Node: " + current);
             var outEdges = _flowGraph.Graph.OutEdges(current).ToList();
             
             List<FlowEdge> sortedOutEdges;
@@ -147,13 +158,26 @@ public class FordFulkersonAlgorithm
             }
             else
             {
-                sortedOutEdges = outEdges.OrderByDescending(edge => int.Parse(edge.Target.Id)).ToList();
+                sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
             }
+            
+            Console.WriteLine("Sorted out edges for node:");
+            foreach (FlowEdge edge in sortedOutEdges)
+            {
+                Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Current Flow: {edge.CurrentFlow}");
+            }
+            
+            Console.WriteLine("Looping through:");
+
+            List<FlowNode> nodesToAdd = new List<FlowNode>();
             
             // go through all outgoing edges
             foreach (FlowEdge currentEdge in sortedOutEdges)
             {
+                
                 if (currentEdge.Residual <= 0 || visited.Contains(currentEdge.Target)) continue;
+                
+                Console.WriteLine($"{currentEdge.Source.Id} -> {currentEdge.Target.Id}, Current Flow: {currentEdge.CurrentFlow}");
                 
                 visited.Add(currentEdge.Target);
                 parentMap.Add(currentEdge.Target, currentEdge);
@@ -165,19 +189,28 @@ public class FordFulkersonAlgorithm
                     return true;
                 }
                 
-                // search further
-                if (strategy == SearchStrategy.BreadthFirstSearch)
+                nodesToAdd.Add(currentEdge.Target);
+            }
+            
+            if (strategy == SearchStrategy.BreadthFirstSearch)
+            {
+                foreach (var node in nodesToAdd.OrderBy(n => int.Parse(n.Id)))
                 {
-                    ((Queue<FlowNode>)nodesToVisit).Enqueue(currentEdge.Target);
+                    ((Queue<FlowNode>)nodesToVisit).Enqueue(node);
                 }
-                else
+            }
+            else
+            {
+                foreach (var node in nodesToAdd.OrderByDescending(n => int.Parse(n.Id)))
                 {
-                    ((Stack<FlowNode>)nodesToVisit).Push(currentEdge.Target);
+                    ((Stack<FlowNode>)nodesToVisit).Push(node);
                 }
             }
         }
         
         return false;
+        
+        
     }
     
     private static void BuildAugmentingPath(FlowNode source, FlowNode target, Dictionary<FlowNode, FlowEdge> parentMap, Dictionary<FlowEdge, double> pathFlow)
@@ -219,10 +252,24 @@ public class FordFulkersonAlgorithm
         }
     }
     
-    private void SaveGraphState()
+    private void SaveGraphState(List<FlowEdge>? augmentingPath = null)
     {
         // Deep copy the current graph state
         var snapshot = _flowGraph.Clone();
+    
+        // If an augmenting path is provided, highlight it in the snapshot
+        if (augmentingPath != null)
+        {
+            foreach (var edge in augmentingPath)
+            {
+                var edgeInSnapshot = snapshot.Graph.Edges.FirstOrDefault(e => e.Source.Id == edge.Source.Id && e.Target.Id == edge.Target.Id);
+                if (edgeInSnapshot != null)
+                {
+                    edgeInSnapshot.IsHighlighted = true;
+                }
+            }
+        }
+    
         _graphStates.Add(snapshot);
     }
 
