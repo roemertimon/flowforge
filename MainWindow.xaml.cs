@@ -333,5 +333,55 @@ namespace FlowForge
             TikzCodeGenerator tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson);
             tikzCodeGenerator.ExportGraphToLatex(IncludeAnimationCheckbox.IsChecked, StandaloneCheckbox.IsChecked);
         }
+
+        private void SnapToGridButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_msaglGraph.Nodes.Any())
+            {
+                MessageBox.Show("The graph is not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Define grid spacing
+            const int gridX = 50; // Spacing in the X direction
+            const int gridY = 50; // Spacing in the Y direction
+
+            // Iterate through each node and snap it to the nearest grid point
+            foreach (var node in _msaglGraph.Nodes)
+            {
+                var position = node.GeometryNode.Center;
+
+                // Calculate the snapped position
+                double snappedX = Math.Round(position.X / gridX) * gridX;
+                double snappedY = Math.Round(position.Y / gridY) * gridY;
+
+                // Update the node's position
+                node.GeometryNode.Center = new Microsoft.Msagl.Core.Geometry.Point(snappedX, snappedY);
+                
+                // Reset node attributes to clear selection appearance
+                node.Attr.Color = MsaglDrawing.Color.Black; // Default color
+                node.Attr.LineWidth = 1; // Default width
+            }
+
+            // Update edges to reflect new positions
+            if (_gViewer != null)
+            {
+                _gViewer.Graph = _msaglGraph;
+
+                var sugiyamaSettings = new SugiyamaLayoutSettings();
+                sugiyamaSettings.NodeSeparation = 10;
+                //sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.RectilinearToCenter;
+                sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.Spline;
+                sugiyamaSettings.EdgeRoutingSettings.Padding = 1;
+                sugiyamaSettings.RepetitionCoefficientForOrdering = 100;
+                sugiyamaSettings.EdgeRoutingSettings.KeepOriginalSpline = false;
+
+                Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph,
+                    sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
+
+                _gViewer.NeedToCalculateLayout = false;
+                _gViewer.Graph = _msaglGraph;
+            }
+        }
     }
 }
