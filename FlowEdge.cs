@@ -8,13 +8,7 @@ public class FlowEdge : Edge<FlowNode>
     
     public double CurrentFlow { get; set; }
     
-    public double Residual
-    {
-        get => MaxFlow - CurrentFlow;
-        //set => CurrentFlow = MaxFlow - value;
-        //make the setter private
-        private set => CurrentFlow = MaxFlow - value;
-    }
+    public double Residual => MaxFlow - CurrentFlow;
     public bool IsBackwards { get; set; }
     
     public bool IsHighlighted { get; set; }

@@ -26,7 +26,7 @@ public class FordFulkersonAlgorithm
         this.TargetId = targetId;
     }
 
-    public double Run(SearchStrategy strategy=SearchStrategy.BreadthFirstSearch)
+    public double Run(ISearchStrategy strategy, bool forceWorstCase = false)
     {
         // get source and target nodes
         FlowNode? source = _flowGraph.GetVertexById(SourceId);
@@ -37,6 +37,10 @@ public class FordFulkersonAlgorithm
             throw new ArgumentException("Invalid source or target node!");
         }
         Console.WriteLine("Start of Ford-Fulkerson Algorithm...");
+        if (forceWorstCase)
+        {
+            Console.WriteLine("Using worst case scenario for edge selection.");
+        }
 
         double maxFlow = 0.0;
         var pathFlow = new Dictionary<FlowEdge, double>();
@@ -47,7 +51,7 @@ public class FordFulkersonAlgorithm
         SaveGraphState();
 
         // execute as long as there is an augmenting path
-        while (strategy == SearchStrategy.BreadthFirstSearch ? FindAugmentingPathBfs(source, target, pathFlow) : FindAugmentingPathDfs(source, target, pathFlow))
+        while (strategy.FindAugmentingPath(_flowGraph, source, target, pathFlow, forceWorstCase))
         {
             PrintOrderedPath(pathFlow);
             
@@ -131,138 +135,7 @@ public class FordFulkersonAlgorithm
         Console.WriteLine($"Bottleneck (minimum flow in path): {pathMinFlow}");
         return pathMinFlow;
     }
-
-    private bool FindAugmentingPathBfs(FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow)
-    {
-        // parent map to walk back path
-        var parentMap = new Dictionary<FlowNode, FlowEdge>();
-        
-        Queue<FlowNode> nodesToVisit = new Queue<FlowNode>();
-        nodesToVisit.Enqueue(source);
-
-        // map to store visited nodes
-        var visited = new HashSet<FlowNode> {source};
-
-        while (nodesToVisit.Any())
-        {
-            var current = nodesToVisit.Dequeue();
-
-            Console.WriteLine("Current Node: " + current);
-            var outEdges = _flowGraph.Graph.OutEdges(current).ToList();
-
-            List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
-            
-            Console.WriteLine("Sorted out edges for node:");
-            foreach (FlowEdge edge in sortedOutEdges)
-            {
-                Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Current Flow: {edge.CurrentFlow}");
-            }
-            
-            Console.WriteLine("Looping through:");
-
-            List<FlowNode> nodesToAdd = new List<FlowNode>();
-            
-            // go through all outgoing edges
-            foreach (FlowEdge currentEdge in sortedOutEdges)
-            {
-                
-                if (currentEdge.Residual <= 0 || visited.Contains(currentEdge.Target)) continue;
-                
-                Console.WriteLine($"{currentEdge.Source.Id} -> {currentEdge.Target.Id}, Current Flow: {currentEdge.CurrentFlow}");
-                
-                visited.Add(currentEdge.Target);
-                parentMap.Add(currentEdge.Target, currentEdge);
-                
-                // if we reached the target node
-                if (currentEdge.Target.Equals(target))
-                {
-                    BuildAugmentingPath(source, target, parentMap, pathFlow);
-                    return true;
-                }
-                
-                nodesToAdd.Add(currentEdge.Target);
-            }
-            
-            foreach (var node in nodesToAdd.OrderBy(n => int.Parse(n.Id)))
-            {
-                nodesToVisit.Enqueue(node);
-            }
-        }
-        
-        return false;
-    }
     
-    private bool FindAugmentingPathDfs(FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow)
-    {
-        // parent map to walk back path
-        var parentMap = new Dictionary<FlowNode, FlowEdge>();
-        
-        Stack<FlowNode> nodesToVisit = new Stack<FlowNode>();
-        nodesToVisit.Push(source);
-
-        // map to store visited nodes
-        var visited = new HashSet<FlowNode>();
-
-        while (nodesToVisit.Any())
-        {
-            var current = nodesToVisit.Pop();
-            Console.WriteLine("Current Node: " + current);
-            
-            // if we reached the target node
-            if (current.Equals(target))
-            {
-                BuildAugmentingPath(source, target, parentMap, pathFlow);
-                return true;
-            }
-            
-            var outEdges = _flowGraph.Graph.OutEdges(current).ToList();
-            List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
-            
-            Console.WriteLine("Sorted out edges for node:");
-            foreach (FlowEdge edge in sortedOutEdges)
-            {
-                Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Current Flow: {edge.CurrentFlow}");
-            }
-            
-            Console.WriteLine("Looping through:");
-
-            List<FlowNode> nodesToAdd = new List<FlowNode>();
-            
-            // go through all outgoing edges
-            foreach (FlowEdge currentEdge in sortedOutEdges)
-            {
-                if (currentEdge.Residual <= 0 || visited.Contains(currentEdge.Target)) continue;
-                
-                Console.WriteLine($"{currentEdge.Source.Id} -> {currentEdge.Target.Id}, Current Flow: {currentEdge.CurrentFlow}");
-                
-                parentMap[currentEdge.Target] = currentEdge;
-                nodesToAdd.Add(currentEdge.Target);
-            }
-            
-            foreach (var node in nodesToAdd.OrderByDescending(n => int.Parse(n.Id)))
-            {
-                nodesToVisit.Push(node);
-            }
-            
-            visited.Add(current);
-        }
-        
-        return false;
-    }
-    
-    private static void BuildAugmentingPath(FlowNode source, FlowNode target, Dictionary<FlowNode, FlowEdge> parentMap, Dictionary<FlowEdge, double> pathFlow)
-    {
-        FlowNode currentNode = target;
-        pathFlow.Clear();
-
-        while (currentNode != source)
-        {
-            FlowEdge pathEdge = parentMap[currentNode];
-            pathFlow[pathEdge] = pathEdge.Residual;
-            currentNode = pathEdge.Source;
-        }
-    }
-
     private static void PrintOrderedPath(Dictionary<FlowEdge, double> pathFlow)
     {
         Console.WriteLine("Augmenting Path found:");

@@ -1,0 +1,136 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace FlowForge;
+
+public class WorstCaseSearch
+{
+    public bool FindAugmentingPathWithEdge(FlowGraph flowGraph, FlowNode source, FlowNode target, FlowEdge requiredEdge, Dictionary<FlowEdge, double> pathFlow)
+    {
+        Console.WriteLine($"Searching for augmenting path that includes edge {requiredEdge.Source.Id} -> {requiredEdge.Target.Id}");
+
+        // Determine if the required edge is valid in either direction
+        FlowEdge? validEdge = null;
+        bool isReversed = false;
+
+        if (requiredEdge.Residual > 0)
+        {
+            validEdge = requiredEdge;
+        }
+        else if (flowGraph.Graph.TryGetEdge(requiredEdge.Target, requiredEdge.Source, out validEdge))
+        {
+            if (validEdge.Residual > 0)
+            {
+                isReversed = true;
+            }
+            else
+            {
+                validEdge = null;
+            }
+        }
+        else
+        {
+            validEdge = null;
+        }
+
+        if (validEdge == null)
+        {
+            Console.WriteLine("No valid residual capacity on the required edge in either direction.");
+            return FindAugmentingPath(flowGraph, source, target, pathFlow);
+        }
+
+        // Phase 1: Find a path from source to the starting node of the valid edge
+        var phase1Path = new Dictionary<FlowEdge, double>();
+        var phase1Success = FindAugmentingPath(flowGraph, source, isReversed ? validEdge.Target : validEdge.Source, phase1Path);
+
+        if (!phase1Success)
+        {
+            Console.WriteLine("No path found from source to the required edge.");
+            return FindAugmentingPath(flowGraph, source, target, pathFlow);
+        }
+
+        // Phase 2: Find a path from the ending node of the valid edge to the target
+        var phase2Path = new Dictionary<FlowEdge, double>();
+        var phase2Success = FindAugmentingPath(flowGraph, isReversed ? validEdge.Source : validEdge.Target, target, phase2Path);
+
+        if (!phase2Success)
+        {
+            Console.WriteLine("No path found from the required edge to the target.");
+            return FindAugmentingPath(flowGraph, source, target, pathFlow);
+        }
+
+        // Combine the results
+        pathFlow.Clear();
+        foreach (var kvp in phase1Path)
+        {
+            pathFlow[kvp.Key] = kvp.Value;
+        }
+        pathFlow[validEdge] = validEdge.Residual; // Include the required edge
+        foreach (var kvp in phase2Path)
+        {
+            pathFlow[kvp.Key] = kvp.Value;
+        }
+
+        Console.WriteLine("Augmenting path including the required edge found!");
+        return true;
+    }
+    
+    private bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow)
+    {
+        // parent map to walk back path
+        var parentMap = new Dictionary<FlowNode, FlowEdge>();
+        
+        Stack<FlowNode> nodesToVisit = new Stack<FlowNode>();
+        nodesToVisit.Push(source);
+
+        // map to store visited nodes
+        var visited = new HashSet<FlowNode>();
+
+        while (nodesToVisit.Any())
+        {
+            var current = nodesToVisit.Pop();
+            Console.WriteLine("Current Node: " + current);
+            
+            // if we reached the target node
+            if (current.Equals(target))
+            {
+                ISearchStrategy.BuildAugmentingPath(source, target, parentMap, pathFlow);
+                return true;
+            }
+            
+            var outEdges = flowGraph.Graph.OutEdges(current).ToList();
+            List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
+            
+            Console.WriteLine("Sorted out edges for node:");
+            foreach (FlowEdge edge in sortedOutEdges)
+            {
+                Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Current Flow: {edge.CurrentFlow}");
+            }
+            
+            Console.WriteLine("Looping through:");
+
+            List<FlowNode> nodesToAdd = new List<FlowNode>();
+            
+            // go through all outgoing edges
+            foreach (FlowEdge currentEdge in sortedOutEdges)
+            {
+                if (currentEdge.Residual <= 0 || visited.Contains(currentEdge.Target)) continue;
+                
+                Console.WriteLine($"{currentEdge.Source.Id} -> {currentEdge.Target.Id}, Current Flow: {currentEdge.CurrentFlow}");
+                
+                parentMap[currentEdge.Target] = currentEdge;
+                nodesToAdd.Add(currentEdge.Target);
+            }
+            
+            foreach (var node in nodesToAdd.OrderByDescending(n => int.Parse(n.Id)))
+            {
+                nodesToVisit.Push(node);
+            }
+            
+            visited.Add(current);
+        }
+        
+        return false;
+    }
+}
