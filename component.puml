@@ -1,0 +1,93 @@
+﻿@startuml
+
+
+
+' Layout settings
+
+left to right direction
+
+skinparam linetype ortho
+
+
+
+' General component styles
+
+skinparam componentStyle rectangle
+
+skinparam ArrowThickness 2
+
+skinparam ArrowColor Black
+
+skinparam DefaultFontSize 14
+
+skinparam FontName Arial
+
+skinparam BackgroundColor #FAFAFA
+
+
+
+' Labels and padding
+
+skinparam linetextAlignment center
+
+skinparam Padding 20
+
+
+
+' Define components
+
+component "User Interface" as UI
+
+component "Algorithm Logic" as Algo
+
+component "Flow Graph" {
+
+component "Flow Edge" as FlowEdge
+
+component "Flow Node" as FlowNode
+
+}
+
+component "Latex Export" as LatexExport
+
+
+
+' Sub-components for clarity
+
+component "Main Window" as MainWindow
+
+component "Ford-Fulkerson Algorithm" as FordFulkerson
+
+component "TikZ Code Generator" as TikzCode
+
+
+
+' Connections
+
+UI --> Algo : "Triggers"
+
+UI --> FlowGraph : "Manages"
+
+Algo --> FlowGraph : "Operates"
+
+LatexExport --> FlowGraph : "Exports"
+
+LatexExport --> Algo : "Uses"
+
+
+
+' Detailed connections for sub-components
+
+UI --> MainWindow : "Provides"
+
+MainWindow --> FlowGraph : "Uses"
+
+MainWindow --> FordFulkerson : "Controls"
+
+FordFulkerson --> FlowGraph : "Processes"
+
+LatexExport --> TikzCode : "Generates"
+
+
+
+@enduml
