@@ -1,4 +1,4 @@
-﻿namespace FlowForge;
+﻿namespace FlowForge.Model;
 
 public class FlowNode
 {

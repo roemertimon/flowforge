@@ -2,7 +2,7 @@
 using System.Linq;
 using QuikGraph;
 
-namespace FlowForge;
+namespace FlowForge.Model;
 
 public class FlowGraph
 {
