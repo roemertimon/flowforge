@@ -90,54 +90,15 @@ namespace FlowForge
         {
             try
             {
+                var graph = FlowNetworkParser.ParseFile(filePath);
+
                 // Clear existing graph data
                 if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
                 _nodePositions.Clear();
-                _flowGraph = new FlowGraph();
-
-                // Read all lines from the file
-                var lines = System.IO.File.ReadAllLines(filePath);
-
-                if (lines.Length < 2)
-                {
-                    throw new FormatException("The file must contain at least two lines: number of vertices and at least one edge.");
-                }
-
-                // Parse the number of vertices from the first line
-                if (!int.TryParse(lines[0], out int numVertices) || numVertices <= 1)
-                {
-                    throw new FormatException("The first line must specify an integer greater than 1 for the number of vertices.");
-                }
-
-                // Add vertices (labeled from 1 to n)
-                for (int i = 1; i <= numVertices; i++)
-                {
-                    _flowGraph.AddVertex(i.ToString(), i.ToString());
-                }
-
-                // Parse the edges
-                for (int i = 1; i < lines.Length; i++)
-                {
-                    var parts = lines[i].Split(new[] { ',', ':' }, StringSplitOptions.RemoveEmptyEntries);
-
-                    if (parts.Length != 3 || 
-                        !int.TryParse(parts[0], out int from) || 
-                        !int.TryParse(parts[1], out int to) || 
-                        !int.TryParse(parts[2], out int capacity))
-                    {
-                        throw new FormatException($"Invalid edge format on line {i + 1}: {lines[i]}");
-                    }
-
-                    if (from < 1 || from > numVertices || to < 1 || to > numVertices)
-                    {
-                        throw new FormatException($"Edge references invalid vertices on line {i + 1}: {lines[i]}");
-                    }
-
-                    _flowGraph.AddEdge(from.ToString(), to.ToString(), capacity);
-                }
+                _flowGraph = graph;
 
                 // Initialize the Ford-Fulkerson algorithm
-                _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", numVertices.ToString());
+                _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", _flowGraph.Graph.VertexCount.ToString());
 
                 MessageBox.Show("Graph successfully initialized from file.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
