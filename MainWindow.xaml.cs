@@ -302,8 +302,33 @@ namespace FlowForge
             }
 
             if (_fordFulkerson == null) return;
-            TikzCodeGenerator tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson);
-            tikzCodeGenerator.ExportGraphToLatex(IncludeAnimationCheckbox.IsChecked, StandaloneCheckbox.IsChecked);
+
+            bool includeAnimation = IncludeAnimationCheckbox.IsChecked ?? false;
+            bool standalone = StandaloneCheckbox.IsChecked ?? true;
+
+            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "TeX files (*.tex)|*.tex",
+                Title = "Export Graph to LaTeX"
+            };
+
+            if (saveFileDialog.ShowDialog() != true) return;
+
+            try
+            {
+                var tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson);
+                System.IO.File.WriteAllText(saveFileDialog.FileName, tikzCodeGenerator.GenerateTikzCode(includeAnimation, standalone));
+
+                string message = "Graph successfully exported to LaTeX file:\n" + saveFileDialog.FileName + "\n\nOptions:\n";
+                message += includeAnimation ? "- Includes animation\n" : "- No animation\n";
+                message += standalone ? "- Standalone document\n" : "- TikZ code only (no standalone)";
+
+                MessageBox.Show(message, "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error exporting graph: {ex.Message}", "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SnapToGridButton_Click(object sender, RoutedEventArgs e)

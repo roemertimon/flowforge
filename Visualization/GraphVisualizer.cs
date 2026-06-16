@@ -17,23 +17,16 @@ public static class GraphVisualizer
 
         foreach (var edge in flowGraph.Graph.Edges)
         {
-            //if(edge.IsBackwards) continue;
-            
             var msaglEdge = msaglGraph.AddEdge(edge.Source.Id, edge.Target.Id);
+            msaglEdge.LabelText = edge.FlowLabel;
 
             if (edge.IsBackwards)
             {
-                msaglEdge.LabelText = $"{edge.CurrentFlow}/{edge.MaxFlow}";
                 msaglEdge.Attr.Color = Color.Gray;
             }
-            else
+            else if (edge.CurrentFlow > 0)
             {
-                msaglEdge.LabelText = $"{edge.CurrentFlow}/{edge.MaxFlow}";
-
-                if (edge.MaxFlow-edge.Residual > 0)
-                {
-                    msaglEdge.Attr.Color = Color.Orange;
-                }
+                msaglEdge.Attr.Color = Color.Orange;
             }
         }
 
