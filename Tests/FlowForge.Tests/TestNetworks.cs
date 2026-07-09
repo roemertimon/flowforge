@@ -23,8 +23,7 @@ internal static class TestNetworks
     }
 
     /// <summary>The five-node example network shown by the application (maximum flow 40).</summary>
-    public static FlowGraph Example() => Build(5,
-        (1, 2, 20), (1, 3, 20), (2, 3, 1), (2, 4, 20), (3, 4, 20), (4, 5, 40));
+    public static FlowGraph Example() => ExampleNetwork.Create();
 
     /// <summary>Reference maximum flow (Edmonds-Karp on a capacity matrix) used to cross-check the implementation.</summary>
     public static double ReferenceMaxFlow(int vertexCount, IEnumerable<(int From, int To, double Capacity)> edges)

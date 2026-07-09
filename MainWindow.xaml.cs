@@ -158,26 +158,10 @@ namespace FlowForge
             _nodePositions.Clear();
 
             // Initialize a FlowGraph
-            _flowGraph = new FlowGraph();
-
-            // Adding vertices to the graph
-            _flowGraph.AddVertex("1", "1");
-            _flowGraph.AddVertex("2", "2");
-            _flowGraph.AddVertex("3", "3");
-            _flowGraph.AddVertex("4", "4");
-            _flowGraph.AddVertex("5", "5");
-
-            // Adding edges with flow capacities
-            _flowGraph.AddEdge("1", "2", 20);
-            _flowGraph.AddEdge("1", "3", 20);
-            _flowGraph.AddEdge("2", "3", 1);
-            _flowGraph.AddEdge("2", "4", 20);
-            _flowGraph.AddEdge("3", "4", 20);
-            _flowGraph.AddEdge("4", "5", 40);
-
+            _flowGraph = ExampleNetwork.Create();
 
             // Initialize Ford-Fulkerson algorithm with the flow graph
-            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", "5");
+            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, ExampleNetwork.SourceId, ExampleNetwork.SinkId);
         }
 
         private void DisplayGraph()

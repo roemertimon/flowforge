@@ -25,6 +25,9 @@ public class FordFulkersonAlgorithm
     /// <summary>Snapshots recorded during the last run: the initial graph, two per augmentation and the final flow.</summary>
     public IReadOnlyList<FlowGraph> GraphStates => _graphStates;
 
+    /// <summary>The number of augmenting paths that were needed in the last run.</summary>
+    public int AugmentationCount { get; private set; }
+
     public FordFulkersonAlgorithm(FlowGraph flowGraph, string sourceId, string targetId)
     {
         _flowGraph = flowGraph;
@@ -49,6 +52,7 @@ public class FordFulkersonAlgorithm
         _flowGraph.RemoveAllBackwardsEdges();
         _flowGraph.ResetFlow();
         _graphStates.Clear();
+        AugmentationCount = 0;
 
         var originalCapacities = _flowGraph.GetEdges().ToDictionary(edge => edge, edge => edge.MaxFlow);
 
@@ -83,6 +87,7 @@ public class FordFulkersonAlgorithm
             }
 
             maxFlow += bottleneck;
+            AugmentationCount++;
             SaveGraphState(residualChanges);
         }
 
