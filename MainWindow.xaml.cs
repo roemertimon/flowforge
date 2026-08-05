@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Windows;
 using System.Windows.Forms.Integration;
 using FlowForge.Algorithms;
@@ -8,411 +8,248 @@ using FlowForge.Export;
 using FlowForge.Model;
 using FlowForge.Visualization;
 using Microsoft.Msagl.Core;
-using Microsoft.Msagl.Core.Geometry;
-using Microsoft.Msagl.Core.Geometry.Curves;
-using Microsoft.Msagl.Core.Layout;
 using Microsoft.Msagl.Core.Routing;
-using MsaglDrawing = Microsoft.Msagl.Drawing;
 using Microsoft.Msagl.GraphViewerGdi;
 using Microsoft.Msagl.Layout.Layered;
-using Microsoft.Msagl.Layout.MDS;
-using Microsoft.Msagl.Routing;
-using Microsoft.Msagl.Routing.Rectilinear;
+using Microsoft.Msagl.Miscellaneous;
+using MsaglDrawing = Microsoft.Msagl.Drawing;
+using MsaglPoint = Microsoft.Msagl.Core.Geometry.Point;
 
+namespace FlowForge;
 
-namespace FlowForge
+public partial class MainWindow : Window
 {
-    public partial class MainWindow : Window
+    private const double GridSpacing = 50;
+
+    private readonly GViewer _viewer = new();
+    private readonly Dictionary<string, MsaglPoint> _nodePositions = new();
+
+    private FlowGraph _flowGraph = new();
+    private FordFulkersonAlgorithm? _algorithm;
+    private MsaglDrawing.Graph _msaglGraph = new();
+    private bool _hasResult;
+
+    public MainWindow()
     {
-        private GViewer? _gViewer;
-        private FlowGraph _flowGraph = new FlowGraph();
-        private FordFulkersonAlgorithm? _fordFulkerson;
+        InitializeComponent();
 
-        private readonly Dictionary<string, Microsoft.Msagl.Core.Geometry.Point> _nodePositions = new Dictionary<string, Microsoft.Msagl.Core.Geometry.Point>();
+        GraphViewerGrid.Children.Add(new WindowsFormsHost { Child = _viewer });
+        UpdateControlStates();
+    }
 
-        private MsaglDrawing.Graph _msaglGraph = new MsaglDrawing.Graph();
-        private bool _isInitialized = false;
-        private FlowEdge? _specialEdge = null;
-
-
-        public MainWindow()
+    private void OpenGraphButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            InitializeComponent();
+            Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+            Title = "Open graph definition file"
+        };
 
-            SetupGraphViewer();
+        if (dialog.ShowDialog(this) != true) return;
+
+        FlowGraph graph;
+        try
+        {
+            graph = FlowNetworkParser.ParseFile(dialog.FileName);
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(this, $"Failed to load the graph:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
         }
 
-        private void SetupGraphViewer()
+        // By convention the source is the first vertex and the sink is the last one.
+        LoadGraph(graph, "1", graph.Graph.VertexCount.ToString(), $"Loaded {Path.GetFileName(dialog.FileName)}");
+    }
+
+    private void LoadExampleButton_Click(object sender, RoutedEventArgs e)
+    {
+        LoadGraph(ExampleNetwork.Create(), ExampleNetwork.SourceId, ExampleNetwork.SinkId, "Loaded the example network");
+    }
+
+    private void LoadGraph(FlowGraph graph, string sourceId, string sinkId, string origin)
+    {
+        _flowGraph = graph;
+        _algorithm = new FordFulkersonAlgorithm(graph, sourceId, sinkId);
+        _nodePositions.Clear();
+        _hasResult = false;
+
+        EmptyStatePanel.Visibility = Visibility.Collapsed;
+        GraphViewerGrid.Visibility = Visibility.Visible;
+
+        DisplayGraph();
+        SnapNodesToGrid();
+
+        SetStatus($"{origin}: {graph.Graph.VertexCount} vertices, {graph.Graph.EdgeCount} edges, source {sourceId}, sink {sinkId}.");
+        UpdateControlStates();
+    }
+
+    private void FordFulkersonButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetSpecialEdge(out var specialEdge)) return;
+
+        RunAlgorithm("Ford-Fulkerson (DFS)", new DepthFirstSearchStrategy(), specialEdge);
+    }
+
+    private void EdmondsKarpButton_Click(object sender, RoutedEventArgs e)
+    {
+        RunAlgorithm("Edmonds–Karp (BFS)", new BreadthFirstSearchStrategy());
+    }
+
+    private void RunAlgorithm(string name, ISearchStrategy strategy, FlowEdge? specialEdge = null)
+    {
+        if (_algorithm == null) return;
+
+        // Remember where the user has dragged the vertices so that the new drawing keeps the layout.
+        SaveNodePositions();
+
+        double maxFlow = _algorithm.Run(strategy, specialEdge);
+        _hasResult = true;
+
+        DisplayGraph();
+        UpdateControlStates();
+
+        int augmentations = _algorithm.AugmentationCount;
+        SetStatus($"{name}: maximum flow {maxFlow}, found with {augmentations} augmenting path{(augmentations == 1 ? "" : "s")}.");
+    }
+
+    /// <summary>
+    /// Reads the special edge for the worst-case demonstration. Succeeds with <c>null</c> if the option is switched off
+    /// and fails (after telling the user) if it is switched on but the input does not describe an existing edge.
+    /// </summary>
+    private bool TryGetSpecialEdge(out FlowEdge? specialEdge)
+    {
+        specialEdge = null;
+        if (WorstCaseCheckBox.IsChecked != true) return true;
+
+        string sourceId = SpecialEdgeSourceInput.Text.Trim();
+        string targetId = SpecialEdgeTargetInput.Text.Trim();
+        var source = _flowGraph.GetVertexById(sourceId);
+        var target = _flowGraph.GetVertexById(targetId);
+
+        if (source != null && target != null && _flowGraph.Graph.TryGetEdge(source, target, out var edge))
         {
-            // GViewer initialization
-            _gViewer = new GViewer();
-
-            // WindowsFormsHost creation
-            var host = new WindowsFormsHost
-            {
-                Child = _gViewer // Attach GViewer to host
-            };
-
-            // Add the host to the specific Grid designed for graph viewer
-            GraphViewerGrid.Children.Add(host);
+            specialEdge = edge;
+            return true;
         }
 
-        // Event handler for "Initialize and Display Graph" button
-        private void InitializeGraphButton_Click(object sender, RoutedEventArgs e)
+        MessageBox.Show(this,
+            $"The graph has no edge from '{sourceId}' to '{targetId}'.\n\nEnter the vertex ids of an existing edge or untick \"Force worst case\".",
+            "Invalid special edge", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
+    }
+
+    private void DisplayGraph()
+    {
+        _msaglGraph = GraphVisualizer.ConvertToMsaglGraph(_flowGraph, _algorithm?.SourceId, _algorithm?.TargetId);
+
+        // Let MSAGL lay the graph out; if positions are known, move the vertices back and only re-route the edges.
+        _viewer.NeedToCalculateLayout = true;
+        _viewer.Graph = _msaglGraph;
+
+        if (_nodePositions.Count == 0) return;
+
+        foreach (var node in _msaglGraph.Nodes)
         {
-            // Show a file picker dialog
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            if (_nodePositions.TryGetValue(node.Id, out var position))
             {
-                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
-                Title = "Select a Graph Definition File"
-            };
-
-            bool? result = openFileDialog.ShowDialog();
-
-            if (result == true && !string.IsNullOrEmpty(openFileDialog.FileName))
-            {
-                // Initialize graph from the selected file
-                InitializeGraphFromFile(openFileDialog.FileName);
-            }
-            else
-            {
-                // If no file is selected, initialize the default graph
-                InitializeGraphExample();
-            }
-
-            // Display the graph after initialization
-            DisplayGraph();
-            
-            SnapToGridButton_Click(sender, e); // Snap nodes to grid
-        }
-        
-        private void InitializeGraphFromFile(string filePath)
-        {
-            try
-            {
-                var graph = FlowNetworkParser.ParseFile(filePath);
-
-                // Clear existing graph data
-                if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
-                _nodePositions.Clear();
-                _flowGraph = graph;
-
-                // Initialize the Ford-Fulkerson algorithm
-                _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, "1", _flowGraph.Graph.VertexCount.ToString());
-
-                MessageBox.Show("Graph successfully initialized from file.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to initialize graph from file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                InitializeGraphExample(); // Fallback to default graph if file processing fails
-            }
-        }
-
-
-        // Event handler for "Run Ford-Fulkerson" button
-        private void FordFulkersonButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
-            SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
-            if (_fordFulkerson == null)
-            {
-                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            //SaveNodePositions(_gViewer.Graph); // Save positions before running the algorithm
-            
-            AssignSpecialEdge();
-            double maxFlow = _fordFulkerson.Run(new DepthFirstSearchStrategy(), _specialEdge);
-
-            _isInitialized = true;
-            DisplayGraph();
-            MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
-        }
-
-        private void EdmondsKarpButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_fordFulkerson == null)
-            {
-                MessageBox.Show("Please initialize the graph first by clicking the 'Initialize Graph' button!", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
-            SaveNodePositions(_gViewer?.Graph); // Save positions before running the algorithm
-            
-            bool forceWorstCase = WorstCaseCheckbox.IsChecked ?? false;
-            double maxFlow = _fordFulkerson.Run(new BreadthFirstSearchStrategy());
-
-            _isInitialized = true;
-            DisplayGraph();
-            MessageBox.Show($"Maximum flow from source to sink: {maxFlow}");
-        }
-
-        private void InitializeGraphExample()
-        {
-            if (_gViewer != null) _gViewer.NeedToCalculateLayout = true;
-            _nodePositions.Clear();
-
-            // Initialize a FlowGraph
-            _flowGraph = ExampleNetwork.Create();
-
-            // Initialize Ford-Fulkerson algorithm with the flow graph
-            _fordFulkerson = new FordFulkersonAlgorithm(_flowGraph, ExampleNetwork.SourceId, ExampleNetwork.SinkId);
-        }
-
-        private void DisplayGraph()
-        {
-            // Convert QuickGraph to MSAGL Graph
-            _msaglGraph = GraphVisualizer.ConvertToMsaglGraph(_flowGraph);
-            _msaglGraph.Attr.LayerDirection = MsaglDrawing.LayerDirection.TB;
-
-            // Dynamically set the first node (source) to green and the last node (sink) to red
-            if (_flowGraph.Graph.Vertices.Any())
-            {
-                var firstNode = _flowGraph.Graph.Vertices.FirstOrDefault();
-                var lastNode = _flowGraph.Graph.Vertices.LastOrDefault();
-
-                if (firstNode != null)
-                {
-                    var msaglFirstNode = _msaglGraph.FindNode(firstNode.Id);
-                    if (msaglFirstNode != null)
-                    {
-                        msaglFirstNode.Attr.FillColor = MsaglDrawing.Color.Green; // Source node (green)
-                    }
-                }
-
-                if (lastNode != null)
-                {
-                    var msaglLastNode = _msaglGraph.FindNode(lastNode.Id);
-                    if (msaglLastNode != null)
-                    {
-                        msaglLastNode.Attr.FillColor = MsaglDrawing.Color.Red; // Sink node (red)
-                    }
-                }
-            }
-
-            foreach (var node in _msaglGraph.Nodes)
-            {
-                node.Attr.Shape = MsaglDrawing.Shape.Circle; // Knoten als Kreis
-            }
-
-            foreach (var edge in _msaglGraph.Edges)
-            {
-                if (edge.Label != null)
-                {
-                    edge.Label.FontSize = 4; // Setze die Schriftgröße des Kantenlabels auf 4
-                }
-            }
-
-            // Assign MSAGL graph to viewer for display
-            if (_gViewer != null)
-            {
-                _gViewer.Graph = _msaglGraph;
-
-                if (_nodePositions.Any())
-                {
-                    ApplyNodePositions(_msaglGraph);
-
-                    var sugiyamaSettings = new SugiyamaLayoutSettings();
-                    sugiyamaSettings.NodeSeparation = 10;
-                    //sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.RectilinearToCenter;
-                    sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.Spline;
-                    sugiyamaSettings.EdgeRoutingSettings.Padding = 1;
-                    sugiyamaSettings.RepetitionCoefficientForOrdering = 100;
-                    sugiyamaSettings.EdgeRoutingSettings.KeepOriginalSpline = false;
-
-                    Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph,
-                        sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
-
-                    _gViewer.NeedToCalculateLayout = false;
-                    _gViewer.Graph = _msaglGraph;
-                }
+                node.GeometryNode.Center = position;
             }
         }
 
-        private void SaveNodePositions(MsaglDrawing.Graph? msaglGraph)
+        RouteEdges();
+    }
+
+    /// <summary>Re-routes all edges around the current vertex positions and refreshes the viewer without a new layout.</summary>
+    private void RouteEdges()
+    {
+        var settings = new SugiyamaLayoutSettings
         {
-            _nodePositions.Clear();
-            if (msaglGraph == null) return;
-            foreach (var node in msaglGraph.Nodes)
-            {
-                var position = node.GeometryNode.Center;
-                _nodePositions[node.Id] = new Microsoft.Msagl.Core.Geometry.Point(position.X, position.Y);
-            }
-        }
+            NodeSeparation = 10,
+            RepetitionCoefficientForOrdering = 100
+        };
+        settings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.Spline;
+        settings.EdgeRoutingSettings.Padding = 1;
+        settings.EdgeRoutingSettings.KeepOriginalSpline = false;
 
-        private void ApplyNodePositions(MsaglDrawing.Graph msaglGraph)
+        LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph, settings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
+
+        _viewer.NeedToCalculateLayout = false;
+        _viewer.Graph = _msaglGraph;
+    }
+
+    private void SaveNodePositions()
+    {
+        _nodePositions.Clear();
+        foreach (var node in _msaglGraph.Nodes)
         {
-            foreach (var node in msaglGraph.Nodes)
-            {
-                if (_nodePositions.TryGetValue(node.Id, out var position))
-                {
-                    node.GeometryNode.Center = new Microsoft.Msagl.Core.Geometry.Point(position.X, position.Y);
-                }
-            }
-        }
-
-        private void SetStraightLineEdges(MsaglDrawing.Graph msaglGraph)
-        {
-            var geometryGraph = msaglGraph.GeometryGraph;
-
-            foreach (var edge in geometryGraph.Edges)
-            {
-                var sourceCenter = edge.Source.Center;
-                var targetCenter = edge.Target.Center;
-
-                // Create a straight line from source to target
-                edge.Curve = new LineSegment(sourceCenter, targetCenter);
-                edge.LineWidth = 2;
-            }
-
-            foreach (var edge in msaglGraph.Edges)
-            {
-                edge.Attr.ArrowheadAtTarget = MsaglDrawing.ArrowStyle.Normal; // Ensure arrowhead is displayed
-                edge.Attr.ArrowheadLength = 1;
-            }
-        }
-
-        private void ExportToLatexButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!_isInitialized)
-            {
-                MessageBox.Show("Please run an algorithm first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (_fordFulkerson == null) return;
-
-            bool includeAnimation = IncludeAnimationCheckbox.IsChecked ?? false;
-            bool standalone = StandaloneCheckbox.IsChecked ?? true;
-
-            var saveFileDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "TeX files (*.tex)|*.tex",
-                Title = "Export Graph to LaTeX"
-            };
-
-            if (saveFileDialog.ShowDialog() != true) return;
-
-            try
-            {
-                var tikzCodeGenerator = new TikzCodeGenerator(_flowGraph, _nodePositions, _fordFulkerson);
-                System.IO.File.WriteAllText(saveFileDialog.FileName, tikzCodeGenerator.GenerateTikzCode(includeAnimation, standalone));
-
-                string message = "Graph successfully exported to LaTeX file:\n" + saveFileDialog.FileName + "\n\nOptions:\n";
-                message += includeAnimation ? "- Includes animation\n" : "- No animation\n";
-                message += standalone ? "- Standalone document\n" : "- TikZ code only (no standalone)";
-
-                MessageBox.Show(message, "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error exporting graph: {ex.Message}", "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void SnapToGridButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (!_msaglGraph.Nodes.Any())
-            {
-                MessageBox.Show("The graph is not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            // Define grid spacing
-            const int gridX = 50; // Spacing in the X direction
-            const int gridY = 50; // Spacing in the Y direction
-
-            // Iterate through each node and snap it to the nearest grid point
-            foreach (var node in _msaglGraph.Nodes)
-            {
-                var position = node.GeometryNode.Center;
-
-                // Calculate the snapped position
-                double snappedX = Math.Round(position.X / gridX) * gridX;
-                double snappedY = Math.Round(position.Y / gridY) * gridY;
-
-                // Update the node's position
-                node.GeometryNode.Center = new Microsoft.Msagl.Core.Geometry.Point(snappedX, snappedY);
-                
-                // Reset node attributes to clear selection appearance
-                node.Attr.Color = MsaglDrawing.Color.Black; // Default color
-                node.Attr.LineWidth = 1; // Default width
-            }
-
-            // Update edges to reflect new positions
-            if (_gViewer != null)
-            {
-                _gViewer.Graph = _msaglGraph;
-
-                var sugiyamaSettings = new SugiyamaLayoutSettings();
-                sugiyamaSettings.NodeSeparation = 10;
-                //sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.RectilinearToCenter;
-                sugiyamaSettings.EdgeRoutingSettings.EdgeRoutingMode = EdgeRoutingMode.Spline;
-                sugiyamaSettings.EdgeRoutingSettings.Padding = 1;
-                sugiyamaSettings.RepetitionCoefficientForOrdering = 100;
-                sugiyamaSettings.EdgeRoutingSettings.KeepOriginalSpline = false;
-
-                Microsoft.Msagl.Miscellaneous.LayoutHelpers.RouteAndLabelEdges(_msaglGraph.GeometryGraph,
-                    sugiyamaSettings, _msaglGraph.GeometryGraph.Edges, 100, new CancelToken());
-
-                _gViewer.NeedToCalculateLayout = false;
-                _gViewer.Graph = _msaglGraph;
-            }
-        }
-
-        private void WorstCaseCheckbox_Checked(object sender, RoutedEventArgs e)
-        {
-            Console.WriteLine("Force worst case enabled.");
-            EdgeDefinitionStackPanel.Visibility = Visibility.Visible; // Show the StackPanel
-        }
-
-        private void WorstCaseCheckbox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            Console.WriteLine("Force worst case disabled.");
-            EdgeDefinitionStackPanel.Visibility = Visibility.Collapsed; // Hide the StackPanel
-        }
-        
-        private void AssignSpecialEdge()
-        {
-            // Get the source and target from the text boxes
-            string sourceNodeId = SourceNodeInput.Text.Trim();
-            string targetNodeId = TargetNodeInput.Text.Trim();
-
-            // Validate inputs
-            if (string.IsNullOrEmpty(sourceNodeId) || string.IsNullOrEmpty(targetNodeId))
-            {
-                Console.WriteLine("Source or target node ID is empty.");
-                _specialEdge = null;
-                return;
-            }
-
-            // Retrieve the source and target nodes from the graph
-            FlowNode? sourceNode = _flowGraph.GetVertexById(sourceNodeId);
-            FlowNode? targetNode = _flowGraph.GetVertexById(targetNodeId);
-
-            if (sourceNode == null || targetNode == null)
-            {
-                Console.WriteLine($"Could not find one or both nodes: Source ({sourceNodeId}), Target ({targetNodeId}).");
-                _specialEdge = null;
-                return;
-            }
-
-            // Find the edge between source and target
-            if (!_flowGraph.Graph.TryGetEdge(sourceNode, targetNode, out var edge) || edge == null)
-            {
-                Console.WriteLine($"The edge between {sourceNodeId} and {targetNodeId} does not exist.");
-                _specialEdge = null;
-                return;
-            }
-
-            // Assign the edge to the specialEdge field
-            _specialEdge = edge;
-            Console.WriteLine($"Special edge assigned: {_specialEdge}");
+            _nodePositions[node.Id] = node.GeometryNode.Center;
         }
     }
+
+    private void SnapToGridButton_Click(object sender, RoutedEventArgs e) => SnapNodesToGrid();
+
+    private void SnapNodesToGrid()
+    {
+        foreach (var node in _msaglGraph.Nodes)
+        {
+            var center = node.GeometryNode.Center;
+            node.GeometryNode.Center = new MsaglPoint(
+                Math.Round(center.X / GridSpacing) * GridSpacing,
+                Math.Round(center.Y / GridSpacing) * GridSpacing);
+
+            // Clear the selection appearance of vertices that were clicked in the viewer.
+            node.Attr.Color = MsaglDrawing.Color.Black;
+            node.Attr.LineWidth = 1;
+        }
+
+        RouteEdges();
+    }
+
+    private void ExportToLatexButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_hasResult || _algorithm == null) return;
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "TeX files (*.tex)|*.tex",
+            Title = "Export graph to LaTeX",
+            DefaultExt = ".tex",
+            FileName = "flowforge.tex"
+        };
+
+        if (dialog.ShowDialog(this) != true) return;
+
+        bool includeAnimation = IncludeAnimationCheckBox.IsChecked == true;
+        bool standalone = StandaloneCheckBox.IsChecked == true;
+
+        try
+        {
+            // Vertices may have been dragged since the last run; export what is on screen.
+            SaveNodePositions();
+
+            var generator = new TikzCodeGenerator(_flowGraph, _nodePositions, _algorithm);
+            File.WriteAllText(dialog.FileName, generator.GenerateTikzCode(includeAnimation, standalone));
+
+            string document = standalone ? "standalone document" : "TikZ code only";
+            string animation = includeAnimation ? "with animation" : "without animation";
+            SetStatus($"Exported {Path.GetFileName(dialog.FileName)} ({document}, {animation}).");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            MessageBox.Show(this, $"Error exporting graph:\n{ex.Message}", "Export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void UpdateControlStates()
+    {
+        bool hasGraph = _algorithm != null;
+
+        SnapToGridButton.IsEnabled = hasGraph;
+        FordFulkersonButton.IsEnabled = hasGraph;
+        EdmondsKarpButton.IsEnabled = hasGraph;
+        ExportButton.IsEnabled = _hasResult;
+    }
+
+    private void SetStatus(string message) => StatusText.Text = message;
 }

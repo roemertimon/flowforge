@@ -1,112 +1,153 @@
-﻿<Window x:Class="FlowForge.MainWindow"
+<Window x:Class="FlowForge.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Flow-Forge" Height="600" Width="1150">
-    <Grid x:Name="MainGrid">
-        <!-- Define two rows: one fixed height for the button and one for the graph viewer -->
+        Title="FlowForge"
+        Icon="Resources/logo.ico"
+        Width="1200" Height="720"
+        MinWidth="900" MinHeight="520"
+        Background="{StaticResource WindowBackgroundBrush}"
+        FontFamily="Segoe UI" FontSize="13"
+        UseLayoutRounding="True">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="70"/>  <!-- Fixed height row for button -->
-            <RowDefinition Height="*"/>    <!-- Remaining space for the graph viewer -->
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Button in the first row -->
-        <Button x:Name="InitializeGraphButton" 
-                Content="Initialize graph" 
-                Width="120" 
-                Height="40" 
-                VerticalAlignment="Center" 
-                HorizontalAlignment="Left" 
-                Margin="10" 
-                Grid.Row="0"
-                Panel.ZIndex="1"
-                Click="InitializeGraphButton_Click"/>
-        
-        <!-- Second Button in the first row -->
-        <Button x:Name="RunFordFulkersonButton" 
-                Content="Run Ford-Fulkerson" 
-                Width="120" 
-                Height="40" 
-                VerticalAlignment="Center" 
-                HorizontalAlignment="Left" 
-                Margin="310,10,0,10"
-                Grid.Row="0"
-                Click="FordFulkersonButton_Click"/>
-        
-        <!-- Second Button in the first row -->
-        <Button x:Name="RunEdmondsKarpButton" 
-                Content="Run Edmonds–Karp" 
-                Width="120" 
-                Height="40" 
-                VerticalAlignment="Center" 
-                HorizontalAlignment="Left" 
-                Margin="160,10,0,10"
-                Grid.Row="0"
-                Click="EdmondsKarpButton_Click"/>
-        
-        <!-- Second Button in the first row -->
-        <Button x:Name="Export" 
-                Content="Export" 
-                Width="120" 
-                Height="40" 
-                VerticalAlignment="Center" 
-                HorizontalAlignment="Left" 
-                Margin="460,10,0,10"
-                Grid.Row="0"
-                Click="ExportToLatexButton_Click"/>
-        
-        <Button x:Name="SnapToGrid" 
-                Content="Snap to grid" 
-                Width="120" 
-                Height="40" 
-                VerticalAlignment="Center" 
-                HorizontalAlignment="Left" 
-                Margin="610,10,0,10"
-                Grid.Row="0"
-                Click="SnapToGridButton_Click"/>
+        <!-- Toolbar: the groups wrap onto a second line when the window is narrow -->
+        <WrapPanel Grid.Row="0" Margin="12,12,2,0">
 
-        <!-- Checkboxes in the first row -->
-        <CheckBox x:Name="IncludeAnimationCheckbox"
-                  Content="Include animation"
-                  VerticalAlignment="Center"
-                  HorizontalAlignment="Left"
-                  Margin="750,-15,0,10"
-                  Grid.Row="0"/>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardCaption}" Text="GRAPH"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="OpenGraphButton"
+                                Content="Open graph file…"
+                                ToolTip="Load a flow network from a text file"
+                                Click="OpenGraphButton_Click"/>
+                        <Button x:Name="LoadExampleButton"
+                                Content="Load example"
+                                ToolTip="Load the built-in five-vertex example network"
+                                Click="LoadExampleButton_Click"/>
+                        <Button x:Name="SnapToGridButton"
+                                Content="Snap to grid"
+                                ToolTip="Align all vertices to a 50-unit grid"
+                                Click="SnapToGridButton_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
-        <CheckBox x:Name="StandaloneCheckbox"
-                  Content="Standalone"
-                  VerticalAlignment="Center"
-                  HorizontalAlignment="Left"
-                  Margin="750,30,0,10"
-                  Grid.Row="0"
-                  IsChecked="True"/>
-        
-        <CheckBox x:Name="WorstCaseCheckbox"
-                  Content="Force worst case"
-                  VerticalAlignment="Center"
-                  HorizontalAlignment="Left"
-                  Margin="885,-15,0,10"
-                  Grid.Row="0"
-                  IsChecked="False"
-                  Checked="WorstCaseCheckbox_Checked"
-                  Unchecked="WorstCaseCheckbox_Unchecked"/>
-        
-        <StackPanel x:Name="EdgeDefinitionStackPanel"
-                    Orientation="Horizontal" 
-                    VerticalAlignment="Top" 
-                    HorizontalAlignment="Left" 
-                    Margin="880,30,0,0" 
-                    Grid.Row="0"
-                    Visibility="Collapsed"> <!-- Initially hidden -->
-                <TextBlock Text="Source:" VerticalAlignment="Center" Margin="5"/>
-                <TextBox x:Name="SourceNodeInput" Width="50" Margin="5"/>
-    
-                <TextBlock Text="Target:" VerticalAlignment="Center" Margin="5"/>
-                <TextBox x:Name="TargetNodeInput" Width="50" Margin="5"/>
-        </StackPanel>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardCaption}" Text="ALGORITHM"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="FordFulkersonButton"
+                                Style="{StaticResource PrimaryButton}"
+                                Content="Ford-Fulkerson (DFS)"
+                                ToolTip="Find augmenting paths with depth-first search"
+                                Click="FordFulkersonButton_Click"/>
+                        <Button x:Name="EdmondsKarpButton"
+                                Style="{StaticResource PrimaryButton}"
+                                Content="Edmonds–Karp (BFS)"
+                                ToolTip="Find shortest augmenting paths with breadth-first search"
+                                Click="EdmondsKarpButton_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,8,0">
+                        <CheckBox x:Name="WorstCaseCheckBox"
+                                  Content="Force worst case"
+                                  ToolTip="Ford-Fulkerson only: route every augmenting path through the given edge to provoke the worst case"/>
+                        <TextBlock Text="Edge" Margin="14,0,6,0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedTextBrush}"/>
+                        <TextBox x:Name="SpecialEdgeSourceInput" Width="40"
+                                 IsEnabled="{Binding IsChecked, ElementName=WorstCaseCheckBox}"
+                                 ToolTip="Id of the vertex the special edge starts at"/>
+                        <TextBlock Text="→" Margin="6,0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedTextBrush}"/>
+                        <TextBox x:Name="SpecialEdgeTargetInput" Width="40"
+                                 IsEnabled="{Binding IsChecked, ElementName=WorstCaseCheckBox}"
+                                 ToolTip="Id of the vertex the special edge ends at"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CardCaption}" Text="EXPORT"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="ExportButton"
+                                Content="Export LaTeX…"
+                                ToolTip="Save the graph after the last run as TikZ code"
+                                Click="ExportToLatexButton_Click"/>
+                        <StackPanel VerticalAlignment="Center" Margin="4,0,8,0">
+                            <CheckBox x:Name="StandaloneCheckBox"
+                                      Content="Standalone document"
+                                      IsChecked="True"
+                                      ToolTip="Write a complete LaTeX document instead of just the tikzpicture"/>
+                            <CheckBox x:Name="IncludeAnimationCheckBox"
+                                      Content="Include animation"
+                                      Margin="0,4,0,0"
+                                      ToolTip="Add one beamer overlay per algorithm step"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
-        
-        <!-- Placeholder for graph viewer -->
-        <Grid x:Name="GraphViewerGrid" Grid.Row="1"/>
+        </WrapPanel>
+
+        <!-- The viewer is a Windows Forms control and therefore cannot be overlapped by WPF elements, so the
+             empty state is shown instead of the viewer until a graph has been loaded -->
+        <Border Grid.Row="1" Margin="12,0,12,12"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" CornerRadius="8">
+            <Grid Margin="6">
+                <Grid x:Name="GraphViewerGrid" Visibility="Collapsed"/>
+
+                <StackPanel x:Name="EmptyStatePanel"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image Source="Resources/logo.png" Width="96" Height="96"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="FlowForge" FontSize="26" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                    <TextBlock Text="Visualize maximum flow with Ford-Fulkerson and Edmonds–Karp."
+                               Foreground="{StaticResource MutedTextBrush}"
+                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                    <TextBlock Text="Open a graph file or load the example to get started."
+                               Foreground="{StaticResource MutedTextBrush}"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="14,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="StatusText"
+                           Text="Open a graph file or load the example to get started."
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
+                    <Ellipse Width="12" Height="12" Fill="{StaticResource SourceBrush}"
+                             Stroke="{StaticResource MutedTextBrush}" StrokeThickness="1"/>
+                    <TextBlock Style="{StaticResource LegendText}" Text="Source"/>
+                    <Ellipse Width="12" Height="12" Fill="{StaticResource SinkBrush}"
+                             Stroke="{StaticResource MutedTextBrush}" StrokeThickness="1"/>
+                    <TextBlock Style="{StaticResource LegendText}" Text="Sink"/>
+                    <Rectangle Width="22" Height="3" RadiusX="1.5" RadiusY="1.5"
+                               Fill="{StaticResource FlowBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Style="{StaticResource LegendText}" Text="Edge carrying flow" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
