@@ -122,3 +122,7 @@ flowforge/
 - [MSAGL (Microsoft Automatic Graph Layout)](https://www.nuget.org/packages/Microsoft.Msagl) for graph layout and the interactive viewer
 - [QuikGraph](https://www.nuget.org/packages/QuikGraph) for the graph data structure
 - [xUnit](https://xunit.net/) for the tests
+
+## License
+
+FlowForge is released under the [MIT License](LICENSE). You may use, copy, modify, merge, publish, distribute, sublicense and sell it, including in your own projects. The one condition is that the copyright notice and the permission notice from [LICENSE](LICENSE) are included in all copies or substantial portions of the software. The software is provided as is, without warranty.
