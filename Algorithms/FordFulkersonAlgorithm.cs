@@ -1,35 +1,43 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlowForge.Model;
 
 namespace FlowForge.Algorithms;
 
+/// <summary>
+/// Computes a maximum flow with the Ford-Fulkerson method. The way augmenting paths are found is delegated to an
+/// <see cref="ISearchStrategy"/>: depth-first search gives plain Ford-Fulkerson, breadth-first search gives Edmonds-Karp.
+/// </summary>
+/// <remarks>
+/// The residual network is stored in the graph itself: for every edge that carries flow a backwards edge with
+/// <see cref="FlowEdge.IsBackwards"/> set is added, whose capacity equals the flow on the forward edge. All backwards
+/// edges are removed again when the run has finished. After every step a snapshot of the graph is recorded in
+/// <see cref="GraphStates"/> so that the run can be replayed (for example as a TikZ animation).
+/// </remarks>
 public class FordFulkersonAlgorithm
 {
-    public enum SearchStrategy
-    {
-        BreadthFirstSearch,
-        DepthFirstSearch
-    }
-
     public readonly string SourceId;
     public readonly string TargetId;
     private readonly FlowGraph _flowGraph;
     private readonly List<FlowGraph> _graphStates = new();
-    
+
+    /// <summary>Snapshots recorded during the last run: the initial graph, two per augmentation and the final flow.</summary>
     public IReadOnlyList<FlowGraph> GraphStates => _graphStates;
 
     public FordFulkersonAlgorithm(FlowGraph flowGraph, string sourceId, string targetId)
     {
         _flowGraph = flowGraph;
-        this.SourceId = sourceId;
-        this.TargetId = targetId;
+        SourceId = sourceId;
+        TargetId = targetId;
     }
 
+    /// <summary>Runs the algorithm on the graph, leaving the resulting flow on its edges.</summary>
+    /// <param name="strategy">Determines how augmenting paths are searched.</param>
+    /// <param name="specialEdge">Optional edge that depth-first search should try to route every path through (worst case demonstration).</param>
+    /// <returns>The value of the maximum flow.</returns>
     public double Run(ISearchStrategy strategy, FlowEdge? specialEdge = null)
     {
-        // get source and target nodes
         FlowNode? source = _flowGraph.GetVertexById(SourceId);
         FlowNode? target = _flowGraph.GetVertexById(TargetId);
 
@@ -37,148 +45,128 @@ public class FordFulkersonAlgorithm
         {
             throw new ArgumentException("Invalid source or target node!");
         }
-        Console.WriteLine("Start of Ford-Fulkerson Algorithm...");
-        
-        if (specialEdge != null)
-        {
-            Console.WriteLine("Using worst case scenario for edge selection with special edge " + specialEdge);
-        }
+
+        _flowGraph.RemoveAllBackwardsEdges();
+        _flowGraph.ResetFlow();
+        _graphStates.Clear();
+
+        var originalCapacities = _flowGraph.GetEdges().ToDictionary(edge => edge, edge => edge.MaxFlow);
 
         double maxFlow = 0.0;
         var pathFlow = new Dictionary<FlowEdge, double>();
 
-        _flowGraph.ResetFlow();
-        _graphStates.Clear();
-        
         SaveGraphState();
 
-        // execute as long as there is an augmenting path
         while (strategy.FindAugmentingPath(_flowGraph, source, target, pathFlow, specialEdge))
         {
-            PrintOrderedPath(pathFlow);
-            
-            double pathMinFlow = FindBottleneckInPath(pathFlow);
+            double bottleneck = pathFlow.Values.Min();
+            var path = pathFlow.Keys.ToList();
 
-            // add forward flow along the augmenting path
-            foreach (var edge in pathFlow.Keys)
+            foreach (var edge in path)
             {
-                edge.CurrentFlow += pathMinFlow;
-                Console.WriteLine($"Updating forward edge {edge.Source.Id} -> {edge.Target.Id}, New Flow: {edge.CurrentFlow}");
+                edge.CurrentFlow += bottleneck;
             }
-            
-            // Convert pathFlow to a list of edges for highlighting
-            SaveGraphState(pathFlow.Keys.ToList());
-            
-            // change residual where necessary
-            foreach (var edge in pathFlow.Keys.Where(edge => edge.IsBackwards))
-            {
-                if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out var forwardEdge)) continue;
-                
-                forwardEdge.CurrentFlow -= edge.CurrentFlow;
-                edge.CurrentFlow = 0;
 
-                if (forwardEdge.CurrentFlow != 0) continue;
-                _flowGraph.Graph.RemoveEdge(edge);
-                pathFlow.Remove(edge);
-            }
-            
-            List<FlowEdge> residualChanges = new List<FlowEdge>();
-            
-            // create residual flow along the augmenting path
-            foreach (var edge in pathFlow.Keys)
+            SaveGraphState(path);
+
+            var residualChanges = new List<FlowEdge>();
+            foreach (var edge in path)
             {
-                // check if backwards edge exists
-                if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out var reverseEdge))
+                if (edge.IsBackwards)
                 {
-                    // create a backwards edge if it doesn't exist
-                    reverseEdge = new FlowEdge(edge.Target, edge.Source, pathMinFlow);
-
-                    reverseEdge.CurrentFlow = 0;
-                    reverseEdge.IsBackwards = true;
-                    
-                    _flowGraph.Graph.AddEdge(reverseEdge);
-                    residualChanges.Add(reverseEdge);
-                    
-                    Console.WriteLine($"Creating reverse edge {reverseEdge.Source.Id} -> {reverseEdge.Target.Id}");
+                    CancelFlow(edge, bottleneck, residualChanges);
                 }
-                else if (reverseEdge != null)
+                else
                 {
-                    reverseEdge.MaxFlow += pathMinFlow;
-                    residualChanges.Add(reverseEdge);
-                    
-                    Console.WriteLine($"Updating reverse edge {reverseEdge.Source.Id} -> {reverseEdge.Target.Id}, New Residual: {reverseEdge.Residual}");
+                    AddResidualCapacity(edge, bottleneck, residualChanges);
                 }
             }
 
-            // add to total flow
-            maxFlow += pathMinFlow;
-            Console.WriteLine($"Current max flow: {maxFlow}\n");
-            
+            maxFlow += bottleneck;
             SaveGraphState(residualChanges);
         }
 
-        Console.WriteLine($"No Augmenting Path found anymore!\n Max flow found: {maxFlow}\n");
-        
         _flowGraph.RemoveAllBackwardsEdges();
+        RestoreCapacities(originalCapacities);
         SaveGraphState(_flowGraph.GetAllEdgesWithFlow());
 
-        // return maximum flow after no augmenting paths were found anymore
         return maxFlow;
     }
 
-    private static double FindBottleneckInPath(Dictionary<FlowEdge, double> pathFlow)
+    /// <summary>Makes sure that the reverse direction of an augmented edge offers as much residual capacity as the edge now carries.</summary>
+    private void AddResidualCapacity(FlowEdge edge, double amount, List<FlowEdge> residualChanges)
     {
-        // calculate bottleneck in augmenting path
-        double pathMinFlow = double.MaxValue;
-        foreach (var edge in pathFlow.Keys)
+        if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out var reverseEdge))
         {
-            pathMinFlow = Math.Min(pathMinFlow, pathFlow[edge]);
+            reverseEdge = new FlowEdge(edge.Target, edge.Source, edge.CurrentFlow) { IsBackwards = true };
+            _flowGraph.Graph.AddEdge(reverseEdge);
         }
-        Console.WriteLine($"Bottleneck (minimum flow in path): {pathMinFlow}");
-        return pathMinFlow;
-    }
-    
-    private static void PrintOrderedPath(Dictionary<FlowEdge, double> pathFlow)
-    {
-        Console.WriteLine("Augmenting Path found:");
-        
-        if (!pathFlow.Any())
+        else if (reverseEdge.IsBackwards)
         {
-            Console.WriteLine("pathFlow is empty.");
+            reverseEdge.MaxFlow = edge.CurrentFlow;
+        }
+        else
+        {
+            // Both directions are real input edges: raise the capacity of the opposite one temporarily so that its
+            // residual reflects the net flow. The original capacities are restored when the run has finished.
+            reverseEdge.MaxFlow += amount;
+        }
+
+        residualChanges.Add(reverseEdge);
+    }
+
+    /// <summary>Takes back <paramref name="amount"/> of flow from the forward edge that belongs to a backwards edge.</summary>
+    private void CancelFlow(FlowEdge backwardsEdge, double amount, List<FlowEdge> residualChanges)
+    {
+        backwardsEdge.CurrentFlow = 0;
+
+        if (!_flowGraph.Graph.TryGetEdge(backwardsEdge.Target, backwardsEdge.Source, out var forwardEdge))
+        {
             return;
         }
-        
-        // Step 1: Find the starting edge
-        FlowEdge startEdge = pathFlow.Keys
-            .First(edge => pathFlow.Keys.All(e => e.Target.Id != edge.Source.Id));
 
-        // Step 2: Follow the path from start to end
-        var orderedPath = new List<FlowEdge> { startEdge };
-        while (true)
+        forwardEdge.CurrentFlow -= amount;
+        residualChanges.Add(forwardEdge);
+
+        if (forwardEdge.CurrentFlow > 0)
         {
-            var currentEdge = orderedPath.Last();
-            var nextEdge = pathFlow.Keys.FirstOrDefault(edge => edge.Source.Id == currentEdge.Target.Id);
-            
-            if (nextEdge == null) break; // End of path reached
-            orderedPath.Add(nextEdge);
+            backwardsEdge.MaxFlow = forwardEdge.CurrentFlow;
+            residualChanges.Add(backwardsEdge);
         }
-
-        // Step 3: Output the ordered path
-        foreach (var edge in orderedPath)
+        else
         {
-            Console.WriteLine($"{edge.Source.Id} -> {edge.Target.Id}, Residual Capacity: {pathFlow[edge]}");
+            _flowGraph.Graph.RemoveEdge(backwardsEdge);
         }
     }
-    
-    private void SaveGraphState(List<FlowEdge>? augmentingPath = null)
+
+    /// <summary>Undoes temporary capacity changes and cancels flow that runs in both directions of an input edge pair.</summary>
+    private void RestoreCapacities(Dictionary<FlowEdge, double> originalCapacities)
     {
-        // Deep copy the current graph state
-        var snapshot = _flowGraph.Clone();
-    
-        // If an augmenting path is provided, highlight it in the snapshot
-        if (augmentingPath != null)
+        foreach (var (edge, capacity) in originalCapacities)
         {
-            foreach (var edge in augmentingPath)
+            edge.MaxFlow = capacity;
+        }
+
+        foreach (var edge in originalCapacities.Keys)
+        {
+            if (!_flowGraph.Graph.TryGetEdge(edge.Target, edge.Source, out var opposite) || ReferenceEquals(opposite, edge))
+            {
+                continue;
+            }
+
+            double cancelled = Math.Min(edge.CurrentFlow, opposite.CurrentFlow);
+            edge.CurrentFlow -= cancelled;
+            opposite.CurrentFlow -= cancelled;
+        }
+    }
+
+    private void SaveGraphState(List<FlowEdge>? highlightedEdges = null)
+    {
+        var snapshot = _flowGraph.Clone();
+
+        if (highlightedEdges != null)
+        {
+            foreach (var edge in highlightedEdges)
             {
                 var edgeInSnapshot = snapshot.Graph.Edges.FirstOrDefault(e => e.Source.Id == edge.Source.Id && e.Target.Id == edge.Target.Id);
                 if (edgeInSnapshot != null)
@@ -187,8 +175,7 @@ public class FordFulkersonAlgorithm
                 }
             }
         }
-    
+
         _graphStates.Add(snapshot);
     }
-
 }
