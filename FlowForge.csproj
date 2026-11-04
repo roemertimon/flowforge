@@ -2,23 +2,26 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net6.0-windows</TargetFramework>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <RollForward>LatestMajor</RollForward>
         <Nullable>enable</Nullable>
         <UseWPF>true</UseWPF>
-        <ApplicationIcon>./icons/logo.ico</ApplicationIcon>
+        <UseWindowsForms>true</UseWindowsForms>
+        <ApplicationIcon>icons\logo.ico</ApplicationIcon>
     </PropertyGroup>
+
+    <ItemGroup>
+      <Compile Remove="Tests\**" />
+      <EmbeddedResource Remove="Tests\**" />
+      <None Remove="Tests\**" />
+      <Page Remove="Tests\**" />
+    </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Msagl" Version="1.1.6" />
       <PackageReference Include="Microsoft.Msagl.Drawing" Version="1.1.6" />
       <PackageReference Include="Microsoft.Msagl.GraphViewerGDI" Version="1.1.7" />
       <PackageReference Include="QuikGraph" Version="2.5.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Compile Update="App.xaml">
-        <SubType>Form</SubType>
-      </Compile>
     </ItemGroup>
 
 </Project>
