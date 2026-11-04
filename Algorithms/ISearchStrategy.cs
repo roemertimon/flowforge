@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
+using FlowForge.Model;
 
-namespace FlowForge;
+namespace FlowForge.Algorithms;
 
 public interface ISearchStrategy
 {

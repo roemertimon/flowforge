@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Windows;
+using FlowForge.Algorithms;
+using FlowForge.Model;
 
-namespace FlowForge;
+namespace FlowForge.Export;
 
 public class TikzCodeGenerator
 {

@@ -1,30 +1,51 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using FlowForge.Model;
 
-namespace FlowForge;
+namespace FlowForge.Algorithms;
 
-public class BreadthFirstSearchStrategy : ISearchStrategy
+public class DepthFirstSearchStrategy : ISearchStrategy
 {
     public bool FindAugmentingPath(FlowGraph flowGraph, FlowNode source, FlowNode target, Dictionary<FlowEdge, double> pathFlow, FlowEdge? specialEdge = null)
     {
-        Console.WriteLine("Breadth Depth First Search...");
+        try
+        {
+            if (specialEdge != null)
+            {
+                // Use the worst-case search to find the augmenting path
+                WorstCaseSearch worstCaseSearch = new WorstCaseSearch();
+                return WorstCaseSearch.FindAugmentingPathWithEdge(flowGraph, source, target, specialEdge, pathFlow);
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            Console.WriteLine("An error occurred during the worst-case search. Defaulting to normal!");
+        }
+        
         // parent map to walk back path
         var parentMap = new Dictionary<FlowNode, FlowEdge>();
         
-        Queue<FlowNode> nodesToVisit = new Queue<FlowNode>();
-        nodesToVisit.Enqueue(source);
+        Stack<FlowNode> nodesToVisit = new Stack<FlowNode>();
+        nodesToVisit.Push(source);
 
         // map to store visited nodes
-        var visited = new HashSet<FlowNode> {source};
+        var visited = new HashSet<FlowNode>();
 
         while (nodesToVisit.Any())
         {
-            var current = nodesToVisit.Dequeue();
-
+            var current = nodesToVisit.Pop();
             Console.WriteLine("Current Node: " + current);
+            
+            // if we reached the target node
+            if (current.Equals(target))
+            {
+                ISearchStrategy.BuildAugmentingPath(source, target, parentMap, pathFlow);
+                return true;
+            }
+            
             var outEdges = flowGraph.Graph.OutEdges(current).ToList();
-
             List<FlowEdge> sortedOutEdges = outEdges.OrderBy(edge => int.Parse(edge.Target.Id)).ToList();
             
             Console.WriteLine("Sorted out edges for node:");
@@ -40,28 +61,20 @@ public class BreadthFirstSearchStrategy : ISearchStrategy
             // go through all outgoing edges
             foreach (FlowEdge currentEdge in sortedOutEdges)
             {
-                
                 if (currentEdge.Residual <= 0 || visited.Contains(currentEdge.Target)) continue;
                 
                 Console.WriteLine($"{currentEdge.Source.Id} -> {currentEdge.Target.Id}, Current Flow: {currentEdge.CurrentFlow}");
                 
-                visited.Add(currentEdge.Target);
-                parentMap.Add(currentEdge.Target, currentEdge);
-                
-                // if we reached the target node
-                if (currentEdge.Target.Equals(target))
-                {
-                    ISearchStrategy.BuildAugmentingPath(source, target, parentMap, pathFlow);
-                    return true;
-                }
-                
+                parentMap[currentEdge.Target] = currentEdge;
                 nodesToAdd.Add(currentEdge.Target);
             }
             
-            foreach (var node in nodesToAdd.OrderBy(n => int.Parse(n.Id)))
+            foreach (var node in nodesToAdd.OrderByDescending(n => int.Parse(n.Id)))
             {
-                nodesToVisit.Enqueue(node);
+                nodesToVisit.Push(node);
             }
+            
+            visited.Add(current);
         }
         
         return false;

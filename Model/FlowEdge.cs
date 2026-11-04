@@ -1,6 +1,6 @@
-﻿namespace FlowForge;
-
 using QuikGraph;
+
+namespace FlowForge.Model;
 
 public class FlowEdge : Edge<FlowNode>
 {

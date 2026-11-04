@@ -1,6 +1,7 @@
-﻿using Microsoft.Msagl.Drawing;
+using FlowForge.Model;
+using Microsoft.Msagl.Drawing;
 
-namespace FlowForge;
+namespace FlowForge.Visualization;
 
 public static class GraphVisualizer
 {
