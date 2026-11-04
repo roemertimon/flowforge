@@ -91,6 +91,7 @@ public class SearchStrategyTests
         // The edge in the middle only has capacity 1, so each of the 40 units needs its own augmentation.
         // Two snapshots are recorded per augmentation, plus the initial and the final state.
         Assert.Equal(1 + 2 * 40 + 1, algorithm.GraphStates.Count);
+        Assert.Equal(40, algorithm.AugmentationCount);
     }
 
     [Fact]
