@@ -4,9 +4,10 @@ using QuikGraph;
 
 namespace FlowForge.Model;
 
+/// <summary>A flow network: vertices identified by string ids and directed edges carrying a capacity and a current flow.</summary>
 public class FlowGraph
 {
-    public BidirectionalGraph<FlowNode, FlowEdge> Graph { get; private set; }
+    public BidirectionalGraph<FlowNode, FlowEdge> Graph { get; }
     private readonly Dictionary<string, FlowNode> _nodeLookup;
 
     public FlowGraph()
@@ -15,8 +16,11 @@ public class FlowGraph
         _nodeLookup = new Dictionary<string, FlowNode>();
     }
 
+    /// <summary>Adds a vertex. Adding an id that already exists does nothing.</summary>
     public void AddVertex(string id, string? label = null)
     {
+        if (_nodeLookup.ContainsKey(id)) return;
+
         var node = new FlowNode(id, label);
         Graph.AddVertex(node);
         _nodeLookup[id] = node;
@@ -27,15 +31,24 @@ public class FlowGraph
         return _nodeLookup.GetValueOrDefault(id);
     }
 
+    /// <summary>
+    /// Adds an edge between two existing vertices. If an edge with the same direction already exists, its capacity is
+    /// increased instead, because parallel edges are equivalent to a single edge with the summed capacity.
+    /// </summary>
     public void AddEdge(string sourceId, string targetId, double maxFlow)
     {
         var sourceNode = GetVertexById(sourceId);
         var targetNode = GetVertexById(targetId);
 
         if (sourceNode == null || targetNode == null) return;
-        
-        var edge = new FlowEdge(sourceNode, targetNode, maxFlow);
-        Graph.AddEdge(edge);
+
+        if (Graph.TryGetEdge(sourceNode, targetNode, out var existingEdge) && !existingEdge.IsBackwards)
+        {
+            existingEdge.MaxFlow += maxFlow;
+            return;
+        }
+
+        Graph.AddEdge(new FlowEdge(sourceNode, targetNode, maxFlow));
     }
     
     public void RemoveEdge(string sourceId, string targetId)
@@ -116,7 +129,6 @@ public class FlowGraph
             {
                 var clonedEdge = new FlowEdge(source, target, edge.MaxFlow)
                 {
-                    //Residual = edge.Residual,
                     CurrentFlow = edge.CurrentFlow,
                     IsBackwards = edge.IsBackwards
                 };
