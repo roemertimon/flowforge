@@ -1,11 +1,38 @@
+<div align="center">
+
+<img src="Resources/logo.png" alt="FlowForge logo" width="140">
+
 # FlowForge
+
+**Visualize maximum flow with Ford-Fulkerson and Edmonds-Karp.**
 
 [![Windows build](https://github.com/roemertimon/flowforge/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/flowforge/actions/workflows/build.yml)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 
+</div>
+
 **FlowForge** is a Windows desktop application that visualizes the Ford-Fulkerson and Edmonds-Karp maximum-flow algorithms. Load a flow network, run an algorithm, and watch augmenting paths saturate the edges. It can also provoke the worst case of Ford-Fulkerson on purpose and export the result as TikZ/LaTeX, including a step-by-step Beamer animation.
 
 > The application interface is in English.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/images/flowforge-example-graph.png" alt="FlowForge main window showing the built-in example network with capacities and no flow yet">
+      <br><sub><b>Example network</b><br>The built-in network, loaded and ready to run.</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/images/flowforge-edmonds-karp.png" alt="FlowForge after an Edmonds-Karp run: edges carrying flow are orange, the status bar reports a maximum flow of 40 found with 2 augmenting paths">
+      <br><sub><b>Edmonds-Karp result</b><br>Maximum flow 40 in 2 augmenting paths.</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/images/flowforge-worst-case.png" alt="FlowForge after a Ford-Fulkerson run with Force worst case enabled on edge 2 to 3: the status bar reports 40 augmenting paths">
+      <br><sub><b>Forced worst case</b><br>Ford-Fulkerson with edge 2 → 3: 40 augmenting paths.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Background
 
