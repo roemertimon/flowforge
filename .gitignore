@@ -1,5 +1,29 @@
+# Build output
 bin/
 obj/
+artifacts/
+publish/
+
+# NuGet
 /packages/
+*.nupkg
+
+# Test results
+TestResults/
+
+# IDE and user-specific files
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
 riderModule.iml
 /_ReSharper.Caches/
+
+# Generated documentation (Doxygen)
+/html/
+/latex/
+
+# OS files
+Thumbs.db
+.DS_Store
