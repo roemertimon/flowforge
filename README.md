@@ -8,6 +8,7 @@
 
 [![Windows build](https://github.com/roemertimon/flowforge/actions/workflows/build.yml/badge.svg)](https://github.com/roemertimon/flowforge/actions/workflows/build.yml)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 </div>
 
