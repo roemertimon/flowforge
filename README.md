@@ -20,20 +20,24 @@
 
 <table>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="50%">
       <img src="docs/images/flowforge-example-graph.png" alt="FlowForge main window showing the built-in example network with capacities and no flow yet">
       <br><sub><b>Example network</b><br>The built-in network, loaded and ready to run.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="50%">
       <img src="docs/images/flowforge-edmonds-karp.png" alt="FlowForge after an Edmonds-Karp run: edges carrying flow are orange, the status bar reports a maximum flow of 40 found with 2 augmenting paths">
-      <br><sub><b>Edmonds-Karp result</b><br>Maximum flow 40 in 2 augmenting paths.</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/images/flowforge-worst-case.png" alt="FlowForge after a Ford-Fulkerson run with Force worst case enabled on edge 2 to 3: the status bar reports 40 augmenting paths">
-      <br><sub><b>Forced worst case</b><br>Ford-Fulkerson with edge 2 → 3: 40 augmenting paths.</sub>
+      <br><sub><b>Result of a run</b><br>Edges carrying flow are orange and labelled <code>flow/capacity</code>.</sub>
     </td>
   </tr>
 </table>
+
+### Same flow, very different effort
+
+Every algorithm ends with the same maximum flow of 40, so the final graph looks identical for all runs. What changes is how many augmenting paths are needed, and the status bar shows exactly that:
+
+<img src="docs/images/flowforge-comparison.png" alt="Three runs on the example network: Edmonds-Karp needs 2 augmenting paths, Ford-Fulkerson with depth-first search needs 4, and Ford-Fulkerson with Force worst case on edge 2 to 3 needs 40. The status bar reports each count." width="900">
+
+<sub>Three runs on the example network, each showing the algorithm controls and the status bar. Only the number of augmenting paths differs: 2 (Edmonds-Karp), 4 (Ford-Fulkerson) and 40 (Ford-Fulkerson with <b>Force worst case</b> on edge 2 → 3). To see the individual steps, export the run with <b>Include animation</b>.</sub>
 
 ## Background
 
